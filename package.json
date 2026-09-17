@@ -1,0 +1,19 @@
+{
+    "name":  "quizverse",
+    "version":  "1.0.0",
+    "description":  "",
+    "main":  "index.js",
+    "scripts":  {
+                    "test":  "echo \"Error: no test specified\" \u0026\u0026 exit 1",
+                    "dev":  "concurrently \"npm run dev --prefix client\" \"npm run dev --prefix server\""
+                },
+    "keywords":  [
+
+                 ],
+    "author":  "",
+    "license":  "ISC",
+    "type":  "commonjs",
+    "devDependencies":  {
+                            "concurrently":  "^10.0.5"
+                        }
+}
