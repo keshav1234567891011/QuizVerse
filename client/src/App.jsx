@@ -1,28 +1,37 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+
+import Register from "./pages/Register.jsx";
+import Login from "./pages/Login.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 function App() {
-  const [message, setMessage] = useState("Connecting to backend...");
-
-  useEffect(() => {
-    fetch("http://localhost:5000/api/health")
-      .then((response) => response.json())
-      .then((data) => {
-        setMessage(data.message);
-      })
-      .catch((error) => {
-        console.error("Backend connection failed:", error);
-        setMessage("Could not connect to backend");
-      });
-  }, []);
-
   return (
-    <div>
-      <h1>QuizVerse</h1>
+    <BrowserRouter>
+      <nav>
+        <Link to="/">QuizVerse</Link>
+        {" | "}
+        <Link to="/register">Register</Link>
+        {" | "}
+        <Link to="/login">Login</Link>
+      </nav>
 
-      <p>Frontend is running ✅</p>
+      <Routes>
+        <Route path="/" element={<h1>QuizVerse Home</h1>} />
 
-      <p>Backend says: {message}</p>
-    </div>
+        <Route path="/register" element={<Register />} />
+
+        <Route path="/login" element={<Login />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <h1>QuizVerse Dashboard</h1>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
