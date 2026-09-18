@@ -200,6 +200,15 @@ function MyQuizzes() {
                   to={`/quizzes/${quiz._id}/edit`}
                   className="btn btn-secondary"
                 >
+                  {quiz.status === "published" &&
+                    quiz.visibility !== "private" && (
+                      <Link
+                        to={`/play/${quiz._id}`}
+                        className="btn btn-primary"
+                      >
+                        Play
+                      </Link>
+                    )}
                   Edit
                 </Link>
                 <button
