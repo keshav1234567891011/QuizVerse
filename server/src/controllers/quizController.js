@@ -130,3 +130,142 @@ export const getMyQuizzes = async (req, res) => {
     });
   }
 };
+export const getMyQuizById = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid quiz ID",
+      });
+    }
+
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz not found",
+      });
+    }
+
+    if (quiz.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to access this quiz",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      quiz,
+    });
+  } catch (error) {
+    console.error("Get quiz error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while fetching the quiz",
+    });
+  }
+};
+
+export const updateQuiz = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid quiz ID",
+      });
+    }
+
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz not found",
+      });
+    }
+
+    if (quiz.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to edit this quiz",
+      });
+    }
+
+    const allowedFields = [
+      "title",
+      "description",
+      "category",
+      "difficulty",
+      "questions",
+      "timerMode",
+      "totalTimeLimit",
+      "visibility",
+      "status",
+    ];
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        quiz[field] = req.body[field];
+      }
+    });
+
+    await quiz.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Quiz updated successfully",
+      quiz,
+    });
+  } catch (error) {
+    console.error("Update quiz error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while updating the quiz",
+    });
+  }
+};
+
+export const deleteQuiz = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid quiz ID",
+      });
+    }
+
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz not found",
+      });
+    }
+
+    if (quiz.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to delete this quiz",
+      });
+    }
+
+    await quiz.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: "Quiz deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete quiz error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while deleting the quiz",
+    });
+  }
+};
