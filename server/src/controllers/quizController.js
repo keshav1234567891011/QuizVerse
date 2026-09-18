@@ -269,3 +269,124 @@ export const deleteQuiz = async (req, res) => {
     });
   }
 };
+export const getPlayableQuiz = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid quiz ID",
+      });
+    }
+
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz) {
+      return res.status(404).json({
+        success: false,
+        message: "Quiz not found",
+      });
+    }
+
+    if (quiz.status !== "published") {
+      return res.status(403).json({
+        success: false,
+        message: "This quiz is not published",
+      });
+    }
+
+    if (
+      quiz.visibility !== "public" &&
+      quiz.visibility !== "unlisted"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "This quiz is private",
+      });
+    }
+
+    const safeQuestions = quiz.questions.map((question) => ({
+      _id: question._id,
+      questionText: question.questionText,
+      options: question.options,
+      marks: question.marks,
+      timeLimit: question.timeLimit,
+    }));
+
+    res.status(200).json({
+      success: true,
+
+      quiz: {
+        _id: quiz._id,
+        title: quiz.title,
+        description: quiz.description,
+        category: quiz.category,
+        difficulty: quiz.difficulty,
+        timerMode: quiz.timerMode,
+        totalTimeLimit: quiz.totalTimeLimit,
+        questionCount: quiz.questions.length,
+        questions: safeQuestions,
+      },
+    });
+  } catch (error) {
+    console.error("Get playable quiz error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while loading the quiz",
+    });
+  }
+};
+export const getPublicQuizzes = async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({
+      status: "published",
+      visibility: "public",
+    })
+      .populate("creator", "name")
+      .sort({
+        updatedAt: -1,
+      });
+
+    const publicQuizzes = quizzes.map((quiz) => ({
+      _id: quiz._id,
+
+      title: quiz.title,
+      description: quiz.description,
+
+      category: quiz.category,
+      difficulty: quiz.difficulty,
+
+      timerMode: quiz.timerMode,
+      totalTimeLimit: quiz.totalTimeLimit,
+
+      questionCount:
+        quiz.questions.length,
+
+      creator: quiz.creator
+        ? {
+            _id: quiz.creator._id,
+            name: quiz.creator.name,
+          }
+        : null,
+
+      updatedAt: quiz.updatedAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: publicQuizzes.length,
+      quizzes: publicQuizzes,
+    });
+  } catch (error) {
+    console.error(
+      "Get public quizzes error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Something went wrong while loading quizzes",
+    });
+  }
+};

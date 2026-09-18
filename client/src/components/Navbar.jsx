@@ -20,10 +20,16 @@ function Navbar() {
         <nav className="navbar-links">
           <Link to="/">Home</Link>
 
+          <Link to="/browse">Browse</Link>
+
           {user ? (
             <>
               <Link to="/dashboard">Dashboard</Link>
+
               <Link to="/quizzes">My Quizzes</Link>
+
+              <Link to="/attempts">My Attempts</Link>
+
               <Link to="/quizzes/create">Create Quiz</Link>
 
               <span className="navbar-user">Hi, {user.name}</span>

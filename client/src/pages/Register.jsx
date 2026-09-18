@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "../config/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 function Register() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -13,6 +15,15 @@ function Register() {
 
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // If already logged in, don't show register page
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard", {
+        replace: true,
+      });
+    }
+  }, [user, navigate]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;

@@ -5,6 +5,7 @@ import morgan from "morgan";
 import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
 import quizRoutes from "./routes/quizRoutes.js";
+import attemptRoutes from "./routes/attemptRoutes.js";
 const app = express();
 
 // Allows our frontend to communicate with this backend
@@ -25,6 +26,7 @@ app.use(morgan("dev"));
 app.use(express.json());
 app.use(cookieParser());
 app.use("/api/auth", authRoutes);
+app.use("/api/attempts", attemptRoutes);
 // Simple test route
 app.get("/api/health", (req, res) => {
   res.status(200).json({
