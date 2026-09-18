@@ -9,13 +9,13 @@ const answerSchema = new mongoose.Schema(
 
     selectedOption: {
       type: Number,
-      required: true,
+      default: null,
       min: 0,
     },
 
     isCorrect: {
       type: Boolean,
-      required: true,
+      default: false,
     },
 
     marksAwarded: {
@@ -50,38 +50,39 @@ const attemptSchema = new mongoose.Schema(
 
     score: {
       type: Number,
-      required: true,
       default: 0,
       min: 0,
     },
 
     totalMarks: {
       type: Number,
-      required: true,
       default: 0,
       min: 0,
     },
 
     correctAnswers: {
       type: Number,
-      required: true,
       default: 0,
       min: 0,
     },
 
     totalQuestions: {
       type: Number,
-      required: true,
       default: 0,
       min: 0,
     },
 
     percentage: {
       type: Number,
-      required: true,
       default: 0,
       min: 0,
       max: 100,
+    },
+
+    status: {
+      type: String,
+      enum: ["in-progress", "submitted"],
+      default: "in-progress",
     },
 
     startedAt: {
@@ -91,7 +92,13 @@ const attemptSchema = new mongoose.Schema(
 
     submittedAt: {
       type: Date,
-      default: Date.now,
+      default: null,
+    },
+
+    timeTakenSeconds: {
+      type: Number,
+      default: null,
+      min: 0,
     },
   },
   {
@@ -99,6 +106,9 @@ const attemptSchema = new mongoose.Schema(
   }
 );
 
-const Attempt = mongoose.model("Attempt", attemptSchema);
+const Attempt = mongoose.model(
+  "Attempt",
+  attemptSchema
+);
 
 export default Attempt;
