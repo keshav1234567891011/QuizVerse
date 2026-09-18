@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Register from "./pages/Register.jsx";
 import Login from "./pages/Login.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
-
+import Dashboard from "./pages/Dashboard.jsx";
 function App() {
   return (
     <BrowserRouter>
@@ -26,7 +26,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <h1>QuizVerse Dashboard</h1>
+              <Dashboard />
             </ProtectedRoute>
           }
         />

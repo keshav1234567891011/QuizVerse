@@ -26,6 +26,18 @@ export function AuthProvider({ children }) {
       setLoading(false);
     }
   };
+  const logout = async () => {
+    try {
+      await fetch("http://localhost:5000/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      setUser(null);
+    }
+  };
 
   useEffect(() => {
     checkAuth();
@@ -37,6 +49,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         checkAuth,
+        logout,
       }}
     >
       {children}
