@@ -108,3 +108,25 @@ export const createQuiz = async (req, res) => {
     });
   }
 };
+export const getMyQuizzes = async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({
+      creator: req.user._id,
+    }).sort({
+      createdAt: -1,
+    });
+
+    res.status(200).json({
+      success: true,
+      count: quizzes.length,
+      quizzes,
+    });
+  } catch (error) {
+    console.error("Get my quizzes error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Something went wrong while fetching your quizzes",
+    });
+  }
+};
