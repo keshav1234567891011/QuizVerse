@@ -8,6 +8,9 @@ import Dashboard from "./pages/Dashboard.jsx";
 import MyQuizzes from "./pages/MyQuizzes.jsx";
 import EditQuiz from "./pages/EditQuiz.jsx";
 import QuizPlayer from "./pages/QuizPlayer.jsx";
+import BrowseQuizzes from "./pages/BrowseQuizzes.jsx";
+import MyAttempts from "./pages/MyAttempts.jsx";
+import AttemptResult from "./pages/AttemptResult.jsx";
 function App() {
   return (
     <BrowserRouter>
@@ -57,6 +60,25 @@ function App() {
           element={
             <ProtectedRoute>
               <QuizPlayer />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/browse" element={<BrowseQuizzes />} />
+
+        <Route
+          path="/attempts"
+          element={
+            <ProtectedRoute>
+              <MyAttempts />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/attempts/:attemptId/result"
+          element={
+            <ProtectedRoute>
+              <AttemptResult />
             </ProtectedRoute>
           }
         />

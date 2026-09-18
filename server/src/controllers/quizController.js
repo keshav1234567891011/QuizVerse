@@ -336,3 +336,57 @@ export const getPlayableQuiz = async (req, res) => {
     });
   }
 };
+export const getPublicQuizzes = async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({
+      status: "published",
+      visibility: "public",
+    })
+      .populate("creator", "name")
+      .sort({
+        updatedAt: -1,
+      });
+
+    const publicQuizzes = quizzes.map((quiz) => ({
+      _id: quiz._id,
+
+      title: quiz.title,
+      description: quiz.description,
+
+      category: quiz.category,
+      difficulty: quiz.difficulty,
+
+      timerMode: quiz.timerMode,
+      totalTimeLimit: quiz.totalTimeLimit,
+
+      questionCount:
+        quiz.questions.length,
+
+      creator: quiz.creator
+        ? {
+            _id: quiz.creator._id,
+            name: quiz.creator.name,
+          }
+        : null,
+
+      updatedAt: quiz.updatedAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: publicQuizzes.length,
+      quizzes: publicQuizzes,
+    });
+  } catch (error) {
+    console.error(
+      "Get public quizzes error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Something went wrong while loading quizzes",
+    });
+  }
+};

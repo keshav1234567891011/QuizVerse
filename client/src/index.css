@@ -1396,3 +1396,195 @@ main {
     width: 100%;
   }
 }
+/* =========================
+   BROWSE
+========================= */
+
+.browse-controls {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr) 220px;
+
+  gap: 14px;
+
+  margin-bottom: 24px;
+}
+
+.browse-controls input,
+.browse-controls select {
+  width: 100%;
+
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+
+  padding: 12px 14px;
+
+  background: white;
+
+  outline: none;
+}
+
+.browse-controls input:focus,
+.browse-controls select:focus {
+  border-color: #4f46e5;
+
+  box-shadow:
+    0 0 0 3px #eef2ff;
+}
+
+.browse-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 20px;
+}
+
+.browse-card {
+  display: flex;
+  flex-direction: column;
+
+  background: white;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+
+  padding: 22px;
+
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.browse-card:hover {
+  transform: translateY(-3px);
+
+  box-shadow:
+    0 12px 30px
+    rgba(15, 23, 42, 0.08);
+}
+
+.browse-card h2 {
+  margin: 18px 0 8px;
+}
+
+.browse-card > p {
+  flex: 1;
+
+  margin: 0;
+
+  color: #6b7280;
+
+  line-height: 1.6;
+}
+
+.browse-meta {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+
+  margin: 20px 0;
+
+  color: #6b7280;
+
+  font-size: 0.82rem;
+}
+
+
+/* =========================
+   ATTEMPTS
+========================= */
+
+.attempt-list {
+  display: flex;
+  flex-direction: column;
+
+  gap: 14px;
+}
+
+.attempt-card {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr) auto auto;
+
+  align-items: center;
+
+  gap: 24px;
+
+  background: white;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+
+  padding: 20px 22px;
+}
+
+.attempt-card h2 {
+  margin: 5px 0;
+}
+
+.attempt-card p {
+  margin: 0;
+
+  color: #6b7280;
+
+  font-size: 0.82rem;
+}
+
+.attempt-category {
+  color: #4f46e5;
+
+  font-size: 0.78rem;
+  font-weight: 700;
+
+  text-transform: uppercase;
+}
+
+.attempt-score {
+  display: flex;
+
+  flex-direction: column;
+
+  text-align: right;
+}
+
+.attempt-score strong {
+  color: #4338ca;
+
+  font-size: 1.35rem;
+}
+
+.attempt-score span {
+  color: #6b7280;
+
+  font-size: 0.8rem;
+}
+
+
+@media (max-width: 850px) {
+  .browse-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+@media (max-width: 650px) {
+  .browse-controls,
+  .browse-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .attempt-card {
+    grid-template-columns: 1fr;
+  }
+
+  .attempt-score {
+    text-align: left;
+  }
+}

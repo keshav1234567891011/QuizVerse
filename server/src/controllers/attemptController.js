@@ -334,3 +334,134 @@ export const submitAttempt = async (req, res) => {
     });
   }
 };
+export const getMyAttempts = async (req, res) => {
+  try {
+    const attempts = await Attempt.find({
+      user: req.user._id,
+      status: "submitted",
+    })
+      .populate(
+        "quiz",
+        "title category difficulty visibility status"
+      )
+      .sort({
+        submittedAt: -1,
+      });
+
+    const formattedAttempts = attempts.map((attempt) => ({
+      _id: attempt._id,
+
+      quiz: attempt.quiz,
+
+      score: attempt.score,
+      totalMarks: attempt.totalMarks,
+
+      correctAnswers: attempt.correctAnswers,
+      totalQuestions: attempt.totalQuestions,
+
+      percentage: attempt.percentage,
+
+      timeTakenSeconds: attempt.timeTakenSeconds,
+
+      submittedAt: attempt.submittedAt,
+    }));
+
+    res.status(200).json({
+      success: true,
+      count: formattedAttempts.length,
+      attempts: formattedAttempts,
+    });
+  } catch (error) {
+    console.error("Get attempts error:", error);
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Something went wrong while loading your attempts",
+    });
+  }
+};
+
+export const getAttemptResult = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(attemptId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid attempt ID",
+      });
+    }
+
+    const attempt = await Attempt.findById(
+      attemptId
+    ).populate(
+      "quiz",
+      "title description category difficulty visibility status"
+    );
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: "Attempt not found",
+      });
+    }
+
+    if (
+      attempt.user.toString() !==
+      req.user._id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "You are not allowed to view this attempt",
+      });
+    }
+
+    if (attempt.status !== "submitted") {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This attempt has not been submitted yet",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+
+      result: {
+        attemptId: attempt._id,
+
+        quiz: attempt.quiz,
+
+        score: attempt.score,
+        totalMarks: attempt.totalMarks,
+
+        correctAnswers:
+          attempt.correctAnswers,
+
+        totalQuestions:
+          attempt.totalQuestions,
+
+        percentage: attempt.percentage,
+
+        timeTakenSeconds:
+          attempt.timeTakenSeconds,
+
+        startedAt: attempt.startedAt,
+        submittedAt: attempt.submittedAt,
+      },
+    });
+  } catch (error) {
+    console.error(
+      "Get attempt result error:",
+      error
+    );
+
+    res.status(500).json({
+      success: false,
+      message:
+        "Something went wrong while loading the result",
+    });
+  }
+};

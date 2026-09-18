@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { API_URL } from "../config/api.js";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
+import { API_URL } from "../config/api.js";
 function QuizPlayer() {
+  const navigate = useNavigate();
   const { id } = useParams();
 
   const [quiz, setQuiz] = useState(null);
@@ -208,9 +209,7 @@ function QuizPlayer() {
         return;
       }
 
-      setResult(data.result);
-      setStarted(false);
-      setTimeLeft(null);
+      navigate(`/attempts/${data.result.attemptId}/result`);
     } catch (error) {
       console.error("Submit quiz error:", error);
 
