@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import authRoutes from "./routes/authRoutes.js";
 import cookieParser from "cookie-parser";
+import quizRoutes from "./routes/quizRoutes.js";
 const app = express();
 
 // Allows our frontend to communicate with this backend
@@ -31,5 +32,5 @@ app.get("/api/health", (req, res) => {
     message: "QuizVerse API is running",
   });
 });
-
+app.use("/api/quizzes", quizRoutes);
 export default app;
