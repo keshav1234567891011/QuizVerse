@@ -1,12 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import { API_URL } from "../config/api.js";
 
 function Login() {
   const navigate = useNavigate();
-  const { checkAuth } = useAuth();
-
+  const { user, checkAuth } = useAuth();
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard", {
+        replace: true,
+      });
+    }
+  }, [user, navigate]);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
