@@ -196,6 +196,12 @@ function MyQuizzes() {
               </div>
 
               <div className="quiz-card-actions">
+                <Link
+                  to={`/quizzes/${quiz._id}/edit`}
+                  className="btn btn-secondary"
+                >
+                  Edit
+                </Link>
                 <button
                   className="btn btn-secondary"
                   disabled={busyQuizId === quiz._id}

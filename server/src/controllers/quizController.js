@@ -1,5 +1,5 @@
+import mongoose from "mongoose";
 import Quiz from "../models/Quiz.js";
-
 export const createQuiz = async (req, res) => {
   try {
     const {

@@ -6,6 +6,7 @@ import CreateQuiz from "./pages/CreateQuiz.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import MyQuizzes from "./pages/MyQuizzes.jsx";
+import EditQuiz from "./pages/EditQuiz.jsx";
 function App() {
   return (
     <BrowserRouter>
@@ -39,6 +40,14 @@ function App() {
           element={
             <ProtectedRoute>
               <MyQuizzes />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/quizzes/:id/edit"
+          element={
+            <ProtectedRoute>
+              <EditQuiz />
             </ProtectedRoute>
           }
         />
