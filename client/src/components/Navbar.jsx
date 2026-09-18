@@ -23,6 +23,7 @@ function Navbar() {
           {user ? (
             <>
               <Link to="/dashboard">Dashboard</Link>
+              <Link to="/quizzes">My Quizzes</Link>
               <Link to="/quizzes/create">Create Quiz</Link>
 
               <span className="navbar-user">Hi, {user.name}</span>

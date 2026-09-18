@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { API_URL } from "../config/api.js";
+
 function Register() {
   const navigate = useNavigate();
 
@@ -14,10 +15,12 @@ function Register() {
   const [loading, setLoading] = useState(false);
 
   const handleChange = (event) => {
-    setFormData({
-      ...formData,
-      [event.target.name]: event.target.value,
-    });
+    const { name, value } = event.target;
+
+    setFormData((previous) => ({
+      ...previous,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -38,15 +41,15 @@ function Register() {
       const data = await response.json();
 
       if (!response.ok) {
-        setMessage(data.message);
+        setMessage(data.message || "Registration failed.");
         return;
       }
 
-      setMessage("Account created successfully!");
+      setMessage("Account created successfully. Redirecting...");
 
       setTimeout(() => {
         navigate("/login");
-      }, 1000);
+      }, 900);
     } catch (error) {
       console.error(error);
       setMessage("Could not connect to the server.");
@@ -56,50 +59,77 @@ function Register() {
   };
 
   return (
-    <main>
-      <h1>Create your QuizVerse account</h1>
+    <main className="auth-page">
+      <section className="auth-card">
+        <div className="auth-header">
+          <span className="auth-badge">Join QuizVerse</span>
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label>Name</label>
-          <input
-            type="text"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
+          <h1>Create your account</h1>
+
+          <p>Build, publish and manage quizzes from one place.</p>
         </div>
 
-        <div>
-          <label>Email</label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-          />
+        <form className="auth-form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="name">Name</label>
+
+            <input
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Your name"
+              autoComplete="name"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="email">Email address</label>
+
+            <input
+              id="email"
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+
+            <input
+              id="password"
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="At least 6 characters"
+              autoComplete="new-password"
+              minLength="6"
+              required
+            />
+          </div>
+
+          {message && <div className="auth-message">{message}</div>}
+
+          <button
+            type="submit"
+            className="btn btn-primary auth-submit"
+            disabled={loading}
+          >
+            {loading ? "Creating account..." : "Create Account"}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+          Already have an account? <Link to="/login">Login</Link>
         </div>
-
-        <div>
-          <label>Password</label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            minLength="6"
-            required
-          />
-        </div>
-
-        <button type="submit" disabled={loading}>
-          {loading ? "Creating account..." : "Register"}
-        </button>
-      </form>
-
-      {message && <p>{message}</p>}
+      </section>
     </main>
   );
 }
