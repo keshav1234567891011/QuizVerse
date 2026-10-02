@@ -1,3 +1,4 @@
+import { logError } from "../utils/logger.js";
 import mongoose from "mongoose";
 import Quiz from "../models/Quiz.js";
 import { normalizeQuestions, validateQuizContent, playableQuestion } from "../services/questionService.js";
@@ -62,11 +63,11 @@ export const createQuiz = async (req, res) => {
       quiz,
     });
   } catch (error) {
-    console.error("Create quiz error:", error);
+    logError("Create quiz error:", error);
 
     res.status(error.status || (error.name === "ValidationError" ? 400 : 500)).json({
       success: false,
-      message: error.status || error.name === "ValidationError" ? error.message : "Something went wrong while creating the quiz",
+      message: error.status ? error.message : error.name === "ValidationError" ? "Please check the quiz settings." : "Something went wrong while creating the quiz",
     });
   }
 };
@@ -84,7 +85,7 @@ export const getMyQuizzes = async (req, res) => {
       quizzes,
     });
   } catch (error) {
-    console.error("Get my quizzes error:", error);
+    logError("Get my quizzes error:", error);
 
     res.status(500).json({
       success: false,
@@ -122,7 +123,7 @@ if (!canManageQuiz(quiz, req.user)) {
       quiz,
     });
   } catch (error) {
-    console.error("Get quiz error:", error);
+    logError("Get quiz error:", error);
 
     res.status(500).json({
       success: false,
@@ -190,11 +191,11 @@ export const updateQuiz = async (req, res) => {
       quiz,
     });
   } catch (error) {
-    console.error("Update quiz error:", error);
+    logError("Update quiz error:", error);
 
     res.status(error.status || (error.name === "ValidationError" ? 400 : 500)).json({
       success: false,
-      message: error.status || error.name === "ValidationError" ? error.message : "Something went wrong while updating the quiz",
+      message: error.status ? error.message : error.name === "ValidationError" ? "Please check the quiz settings." : "Something went wrong while updating the quiz",
     });
   }
 };
@@ -231,7 +232,7 @@ export const deleteQuiz = async (req, res) => {
       message: "Quiz deleted successfully",
     });
   } catch (error) {
-    console.error("Delete quiz error:", error);
+    logError("Delete quiz error:", error);
 
     res.status(500).json({
       success: false,
@@ -292,7 +293,7 @@ export const getPlayableQuiz = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Get playable quiz error:", error);
+    logError("Get playable quiz error:", error);
 
     res.status(500).json({
       success: false,
@@ -343,10 +344,7 @@ export const getPublicQuizzes = async (req, res) => {
       quizzes: publicQuizzes,
     });
   } catch (error) {
-    console.error(
-      "Get public quizzes error:",
-      error
-    );
+    logError("Get public quizzes error:", error);
 
     res.status(500).json({
       success: false,

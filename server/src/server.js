@@ -1,25 +1,24 @@
 import "dotenv/config";
-import app from "./app.js";
-import connectDB from "./config/db.js";
+import express from "express";
+import { readEnvironment } from "./config/env.js";
+import { createInitializer } from "./config/initialize.js";
+import { logError } from "./utils/logger.js";
 
-import Group from "./models/Group.js";
-import GroupInvitation from "./models/GroupInvitation.js";
-import Assignment from "./models/Assignment.js";
-import Attempt from "./models/Attempt.js";
-import Notification from "./models/Notification.js";
-import GroupMessage from "./models/GroupMessage.js";
-
-const PORT = process.env.PORT || 5000;
-
-await connectDB();
-// Required before membership traffic: uniqueness must be enforced by MongoDB.
-await Group.init();
-await GroupInvitation.init();
-await Assignment.init();
-await Attempt.init();
-await Notification.init();
-await GroupMessage.init();
-
-app.listen(PORT, () => {
-  console.log(`QuizVerse server running on port ${PORT}`);
-});
+let app, port = 5000;
+try {
+  const config = readEnvironment();
+  port = config.port;
+  const { createApp } = await import("./app.js");
+  const initialize = createInitializer({ production: config.production });
+  // Local startup waits once; production requests share initialization/retry.
+  if (!config.production) await initialize();
+  app = createApp({ config, initialize });
+} catch (error) {
+  logError("api-initialization-failed", error);
+  app = express();
+  app.disable("x-powered-by");
+  app.use((req, res) => res.status(503).json({ success: false, message: "Service temporarily unavailable. Check deployment configuration." }));
+}
+// Recognized Express entrypoint: no serverless adapter or backend vercel.json.
+app.listen(port, () => console.log("QuizVerse API listening."));
+export default app;

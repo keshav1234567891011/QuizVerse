@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import crypto from "node:crypto";
 import Quiz from "../src/models/Quiz.js";
 import Attempt from "../src/models/Attempt.js";
 import { resourceReference, referenceFilter } from "../src/services/adminReferenceService.js";
-test("new quiz and standalone attempt UUIDs are stable and additive; legacy admin fallback needs no migration", async () => {
+test("new quiz and standalone attempt UUIDs are stable and additive; opaque legacy fallback needs no migration", async t => {
+  const previous = process.env.ADMIN_REFERENCE_SECRET;
+  process.env.ADMIN_REFERENCE_SECRET = crypto.randomBytes(32).toString("hex");
+  t.after(() => { if (previous === undefined) delete process.env.ADMIN_REFERENCE_SECRET; else process.env.ADMIN_REFERENCE_SECRET = previous; });
   const quiz = new Quiz({ title: "Sample", category: "Science", creator: "507f1f77bcf86cd799439011" });
   await quiz.validate(); const original = quiz.publicId; await quiz.validate(); assert.equal(quiz.publicId, original);
   assert.deepEqual(referenceFilter(original), { publicId: original });
@@ -12,5 +16,13 @@ test("new quiz and standalone attempt UUIDs are stable and additive; legacy admi
   const historicalQuiz = Quiz.hydrate({ ...legacy, title: "Legacy", category: "Science", creator: quiz.creator });
   await historicalQuiz.validate(); assert.equal(historicalQuiz.publicId, undefined);
   assert.deepEqual(referenceFilter(resourceReference(legacy)), { _id: legacy._id });
+  const ref = resourceReference(legacy);
+  assert.ok(!ref.includes(legacy._id));
+  assert.notEqual(ref, resourceReference(legacy));
+  assert.throws(() => referenceFilter(ref, "attempt"), { status: 400 });
+  const tampered = ref.slice(0, 20) + (ref[20] === "a" ? "b" : "a") + ref.slice(21);
+  assert.throws(() => referenceFilter(tampered), { status: 400 });
+  assert.deepEqual(referenceFilter(resourceReference(legacy, "attempt"), "attempt"), { _id: legacy._id });
+  assert.throws(() => referenceFilter(`legacy-${legacy._id}`), { status: 400 });
   for (const value of [legacy._id, "legacy-invalid", {}, "bad-uuid"]) assert.throws(() => referenceFilter(value), { status: 400 });
 });

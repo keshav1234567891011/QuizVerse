@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { logError } from "../utils/logger.js";
 
 export const protect = async (req, res, next) => {
   try {
@@ -14,8 +15,9 @@ export const protect = async (req, res, next) => {
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET, { algorithms: ["HS256"] }
     );
+    if (typeof decoded.userId !== "string" || !/^[a-f0-9]{24}$/i.test(decoded.userId)) throw new Error("Invalid token subject.");
 
     const user = await User.findById(decoded.userId);
 
@@ -33,6 +35,10 @@ export const protect = async (req, res, next) => {
 
     next();
   } catch (error) {
+    if (!["JsonWebTokenError", "TokenExpiredError", "NotBeforeError"].includes(error.name) && error.message !== "Invalid token subject.") {
+      logError("authentication-unavailable", error);
+      return res.status(503).json({ success: false, message: "Authentication temporarily unavailable. Please try again." });
+    }
     return res.status(401).json({
       success: false,
       message: "Invalid or expired authentication token",

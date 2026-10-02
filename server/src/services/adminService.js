@@ -22,10 +22,10 @@ export const quizView = row => ({ reference: resourceReference(row), title: row.
   creator: identity(row.creator), createdAt: row.createdAt, updatedAt: row.updatedAt });
 export const groupView = row => ({ groupCode: row.groupCode, name: row.name, description: row.description, status: row.status,
   teacher: identity(row.teacher), memberCount: row.students?.length || 0, createdAt: row.createdAt, updatedAt: row.updatedAt });
-export const assignmentAdminView = row => ({ ...assignmentView(row), teacher: identity(row.teacher), quiz: row.quiz ? { reference: resourceReference(row.quiz), title: row.quiz.title } : null,
+export const assignmentAdminView = row => ({ ...assignmentView(row), teacher: identity(row.teacher), quiz: row.quiz ? { reference: resourceReference(row.quiz, "quiz"), title: row.quiz.title } : null,
   classroomExists: !!row.group, classroomStatus: row.group?.status || null });
-export const attemptView = row => ({ ...resultView(row), reference: resourceReference(row), student: identity(row.user),
-  quiz: row.quiz ? { reference: resourceReference(row.quiz), title: row.quiz.title } : null,
+export const attemptView = row => ({ ...resultView(row), reference: resourceReference(row, "attempt"), student: identity(row.user),
+  quiz: row.quiz ? { reference: resourceReference(row.quiz, "quiz"), title: row.quiz.title } : null,
   assignment: row.assignment ? { token: row.assignment.shareToken, title: row.assignment.title, group: row.assignment.groupSnapshot } : null });
 
 export function listSettings(query = {}) {
@@ -104,14 +104,14 @@ export async function quizzes(user, query) {
   return pageOf(Quiz, filter, settings, quizFields, [["creator", "name publicId role"]], quizView);
 }
 export async function quizDetails(user, reference) {
-  requireAdmin(user); const row = missing(await Quiz.findOne(referenceFilter(reference)).select(quizFields).populate("creator", "name publicId role").lean(), "Quiz");
+  requireAdmin(user); const row = missing(await Quiz.findOne(referenceFilter(reference, "quiz")).select(quizFields).populate("creator", "name publicId role").lean(), "Quiz");
   const [assignments, attempts] = await Promise.all([Assignment.countDocuments({ quiz: row._id }), Attempt.countDocuments({ quiz: row._id })]);
   return { quiz: quizView(row), counts: { assignments, attempts } };
 }
 export async function moderateQuiz(user, reference, action) {
   requireAdmin(user); if (!["publish", "restrict", "restore", "unpublish"].includes(action)) fail(400, "Invalid moderation action.");
   return mongoose.connection.transaction(async session => {
-    const quiz = missing(await Quiz.findOne(referenceFilter(reference)).session(session), "Quiz");
+    const quiz = missing(await Quiz.findOne(referenceFilter(reference, "quiz")).session(session), "Quiz");
     if (action === "publish") {
       if (quiz.moderationState === "restricted") fail(409, "Restore this quiz before publishing.");
       const creator = await User.findById(quiz.creator).select("role").session(session).lean();
@@ -198,7 +198,7 @@ export async function attempts(user, query) {
   return { ...await pageOf(Attempt, filter, settings, attemptFields.replace(" review", ""), attemptPopulate, attemptView), searchTruncated };
 }
 export async function attemptDetails(user, reference) {
-  requireAdmin(user); let request = Attempt.findOne(referenceFilter(reference)).select(attemptFields);
+  requireAdmin(user); let request = Attempt.findOne(referenceFilter(reference, "attempt")).select(attemptFields);
   for (const [path, fields] of attemptPopulate) request = request.populate(path, fields);
   return attemptView(missing(await request.lean(), "Attempt"));
 }

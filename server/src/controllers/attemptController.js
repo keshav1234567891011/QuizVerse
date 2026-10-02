@@ -1,3 +1,4 @@
+import { logError } from "../utils/logger.js";
 import mongoose from "mongoose";
 
 import Quiz from "../models/Quiz.js";
@@ -82,7 +83,7 @@ export const startAttempt = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Start attempt error:", error);
+    logError("Start attempt error:", error);
 
     res.status(error.status || 500).json({
       success: false,
@@ -199,10 +200,7 @@ export const submitAttempt = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(
-      "Submit attempt error:",
-      error
-    );
+    logError("Submit attempt error:", error);
 
     res.status(error.status || 500).json({
       success: false,
@@ -245,7 +243,7 @@ export const getMyAttempts = async (req, res) => {
       attempts: formattedAttempts,
     });
   } catch (error) {
-    console.error("Get attempts error:", error);
+    logError("Get attempts error:", error);
 
     res.status(500).json({
       success: false,
@@ -332,10 +330,7 @@ export const getAttemptResult = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(
-      "Get attempt result error:",
-      error
-    );
+    logError("Get attempt result error:", error);
 
     res.status(500).json({
       success: false,
