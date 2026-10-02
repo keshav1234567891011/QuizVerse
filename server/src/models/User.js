@@ -10,6 +10,7 @@ const generatePublicId = () => {
 
 const userSchema = new mongoose.Schema(
   {
+    accountStatus: { type: String, enum: ["active", "suspended"], default: "active" },
     name: {
       type: String,
       required: true,

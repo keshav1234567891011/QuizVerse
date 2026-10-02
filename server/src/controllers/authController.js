@@ -110,6 +110,9 @@ export const loginUser = async (req, res) => {
       });
     }
 
+    if (user.accountStatus === "suspended") {
+      return res.status(403).json({ success: false, message: "Your account is suspended. Contact a platform administrator." });
+    }
     const token = jwt.sign(
       {
         userId: user._id,

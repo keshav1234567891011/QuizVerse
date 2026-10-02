@@ -102,7 +102,7 @@ export async function updateAssignment(user, value, body = {}) {
     if (action === "publish") {
       if (a.status !== "draft") fail(409, "Assignment has already been published.");
       const quiz = await Quiz.findById(a.quiz).session(session);
-      if (!quiz || quiz.status !== "published" || !quiz.questions.length) fail(409, "Publish a quiz with questions first.");
+      if (!quiz || quiz.status !== "published" || quiz.moderationState === "restricted" || !quiz.questions.length) fail(409, "Publish an unrestricted quiz with questions first.");
       if (user.role !== "admin" && !same(quiz.creator, user._id)) fail(403, "You no longer own this quiz.");
       const frozen = quizSnapshot(quiz);
       const students = await User.find({ _id: { $in: group.students }, role: "student" }).session(session);

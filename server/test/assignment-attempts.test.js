@@ -116,9 +116,10 @@ test("submitted assignment results remain available after classroom removal; sna
   const res = response(); await get({ user: f.student, params: { publicId: active.publicId } }, res);
   assert.equal(res.code, 200); assert.equal(res.body.result.assignment.token, token);
 });
-test("legacy attempts need no public-ID backfill; new assignment attempts gain a UUID", async () => {
+test("legacy attempts need no public-ID backfill; new standalone and assignment attempts gain a UUID", async () => {
   const ids = { quiz: "507f1f77bcf86cd799439012", user: "507f1f77bcf86cd799439011" };
-  const legacy = new Attempt(ids); await legacy.validate(); assert.equal(legacy.publicId, undefined); assert.equal(legacy.assignment, null);
+  const legacy = Attempt.hydrate(ids); await legacy.validate(); assert.equal(legacy.publicId, undefined); assert.equal(legacy.assignment, null);
+  const standalone = new Attempt(ids); await standalone.validate(); assert.match(standalone.publicId, /^[a-f0-9-]{36}$/);
   const assigned = new Attempt({ ...ids, assignment: "507f1f77bcf86cd799439019", attemptNumber: 1 });
   await assigned.validate(); assert.match(assigned.publicId, /^[a-f0-9-]{36}$/);
 });

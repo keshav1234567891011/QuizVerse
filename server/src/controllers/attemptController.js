@@ -28,7 +28,7 @@ export const startAttempt = async (req, res) => {
       });
     }
 
-    if (quiz.status !== "published") {
+    if (quiz.status !== "published" || quiz.moderationState === "restricted") {
       return res.status(403).json({
         success: false,
         message: "This quiz is not published",

@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../context/auth.js";
 import { API_URL } from "../config/api.js";
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  return user.role === "admin" ? <Navigate to="/admin" replace /> : <PersonalDashboard />;
+}
+function PersonalDashboard() {
   const { user } = useAuth();
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState("");
