@@ -109,6 +109,7 @@ function QuizPlayer() {
       answersRef.current = {};
 
       setCurrentQuestionIndex(0);
+      setTimeLeft(quiz.timerMode === "whole-quiz" ? Number(quiz.totalTimeLimit) : quiz.timerMode === "per-question" ? Number(quiz.questions[0]?.timeLimit) || 30 : null);
 
       setResult(null);
 
@@ -240,6 +241,8 @@ function QuizPlayer() {
 
     const startingTime = Number(quiz.totalTimeLimit);
 
+    // Timer initialization synchronizes an external clock with the current question.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTimeLeft(startingTime);
 
     const interval = setInterval(() => {
@@ -282,6 +285,8 @@ function QuizPlayer() {
 
     const startingTime = Number(question?.timeLimit) || 30;
 
+    // Timer initialization synchronizes an external clock with the current question.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTimeLeft(startingTime);
 
     const interval = setInterval(() => {
@@ -317,16 +322,6 @@ function QuizPlayer() {
       clearInterval(interval);
     };
   }, [started, quiz, currentQuestionIndex]);
-
-  // =========================
-  // NO TIMER
-  // =========================
-
-  useEffect(() => {
-    if (started && quiz?.timerMode === "none") {
-      setTimeLeft(null);
-    }
-  }, [started, quiz]);
 
   // =========================
   // NAVIGATION

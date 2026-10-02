@@ -10,8 +10,6 @@ function MyQuizzes() {
 
   const loadQuizzes = async () => {
     try {
-      setLoading(true);
-      setError("");
 
       const response = await fetch(`${API_URL}/api/quizzes/mine`, {
         credentials: "include",
@@ -24,6 +22,7 @@ function MyQuizzes() {
         return;
       }
 
+      setError("");
       setQuizzes(data.quizzes);
     } catch (error) {
       console.error(error);
@@ -34,7 +33,10 @@ function MyQuizzes() {
   };
 
   useEffect(() => {
-    loadQuizzes();
+    fetch(`${API_URL}/api/quizzes/mine`, { credentials: "include" })
+      .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.message || "Could not load quizzes."); return data.quizzes; })
+      .then(setQuizzes).catch(error => setError(error.message))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleDelete = async (quiz) => {
@@ -196,21 +198,8 @@ function MyQuizzes() {
               </div>
 
               <div className="quiz-card-actions">
-                <Link
-                  to={`/quizzes/${quiz._id}/edit`}
-                  className="btn btn-secondary"
-                >
-                  {quiz.status === "published" &&
-                    quiz.visibility !== "private" && (
-                      <Link
-                        to={`/play/${quiz._id}`}
-                        className="btn btn-primary"
-                      >
-                        Play
-                      </Link>
-                    )}
-                  Edit
-                </Link>
+                <Link to={`/quizzes/${quiz._id}/edit`} className="btn btn-secondary">Edit</Link>
+                {quiz.status === "published" && quiz.visibility !== "private" && <Link to={`/play/${quiz._id}`} className="btn btn-primary">Play</Link>}
                 <button
                   className="btn btn-secondary"
                   disabled={busyQuizId === quiz._id}
