@@ -156,6 +156,12 @@ export const updateQuiz = async (req, res) => {
       });
     }
 
+    if (quiz.moderationState === "restricted" && req.user.role !== "admin" && req.body.status === "published") {
+      return res.status(409).json({ success: false, message: "This quiz is restricted by an administrator." });
+    }
+    if (quiz.moderationState === "restricted" && req.body.status === "published") {
+      return res.status(409).json({ success: false, message: "Restore the quiz through moderation before publishing." });
+    }
     const allowedFields = [
       "title",
       "description",
@@ -251,7 +257,7 @@ export const getPlayableQuiz = async (req, res) => {
       });
     }
 
-    if (quiz.status !== "published") {
+    if (quiz.status !== "published" || quiz.moderationState === "restricted") {
       return res.status(403).json({
         success: false,
         message: "This quiz is not published",
@@ -297,6 +303,7 @@ export const getPlayableQuiz = async (req, res) => {
 export const getPublicQuizzes = async (req, res) => {
   try {
     const quizzes = await Quiz.find({
+      moderationState: { $ne: "restricted" },
       status: "published",
       visibility: "public",
     })

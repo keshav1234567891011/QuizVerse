@@ -14,6 +14,25 @@ export function identifier(value, prefix) {
 export const canManage = (group, user) => user.role === "admin" ||
   (user.role === "teacher" && String(group.teacher?._id || group.teacher) === String(user._id));
 
+// One shared transition for the existing classroom states; no data deletion.
+export async function setGroupStatus(user, code, status) {
+  if (!["active", "archived"].includes(status)) fail(400, "Invalid classroom status.");
+  code = identifier(code, "GRP");
+  return mongoose.connection.transaction(async session => {
+    const group = await Group.findOne({ groupCode: code }).session(session);
+    if (!group) fail(404, "Classroom not found.");
+    if (!canManage(group, user)) fail(403, "You cannot manage this classroom.");
+    if (group.status === status) fail(409, "Classroom already has this status.");
+    if (status === "active") {
+      const owner = await User.findById(group.teacher).session(session);
+      if (!owner || !["teacher", "admin"].includes(owner.role)) fail(409, "Restore the classroom owner's teaching role before restoring this classroom.");
+    }
+    const changed = await Group.findOneAndUpdate({ _id: group._id, status: group.status }, { $set: { status }, $inc: { membershipRevision: 1 } }, { new: true, session });
+    if (!changed) fail(409, "Classroom changed. Refresh and try again.");
+    return { groupCode: changed.groupCode, name: changed.name, status: changed.status };
+  });
+}
+
 // All membership mutations write the group first, serializing competing
 // requests, removals and deletion under MongoDB transaction retries.
 export async function lockGroup(code, session) {

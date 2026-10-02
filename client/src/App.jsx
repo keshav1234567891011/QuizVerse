@@ -23,6 +23,13 @@ import AssignmentResult from "./pages/AssignmentResult.jsx";
 import { NotificationProvider } from "./context/NotificationContext.jsx";
 import Notifications from "./pages/Notifications.jsx";
 import GroupChat from "./pages/GroupChat.jsx";
+import AdminLayout from "./components/AdminLayout.jsx";
+import AdminDashboard from "./pages/AdminDashboard.jsx";
+import AdminUsers from "./pages/AdminUsers.jsx";
+import AdminQuizzes from "./pages/AdminQuizzes.jsx";
+import AdminGroups from "./pages/AdminGroups.jsx";
+import AdminAssignments from "./pages/AdminAssignments.jsx";
+import AdminAttempts from "./pages/AdminAttempts.jsx";
 
 function App() {
   return (
@@ -30,6 +37,14 @@ function App() {
       <Navbar />
 
       <div id="main-content" tabIndex={-1}><Routes>
+        <Route path="/admin" element={<ProtectedRoute roles={["admin"]}><AdminLayout /></ProtectedRoute>}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="quizzes" element={<AdminQuizzes />} />
+          <Route path="groups" element={<AdminGroups />} />
+          <Route path="assignments" element={<AdminAssignments />} />
+          <Route path="attempts" element={<AdminAttempts />} />
+        </Route>
         <Route path="/" element={<Home />} />
 
         <Route path="/register" element={<Register />} />

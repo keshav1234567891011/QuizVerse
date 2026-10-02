@@ -1979,3 +1979,20 @@ button:disabled { cursor:wait; opacity:.6; transform:none; }
 .result-review .panel { overflow-wrap: anywhere; }
 .submitted-answer { white-space: pre-wrap; }
 @media (max-width: 600px) { .question-card-header { flex-wrap: wrap; gap: .8rem; } .option-row { flex-wrap: wrap; } .option-row input[type="text"] { min-width: 0; } }
+
+/* Branch 8: administration uses the existing QuizVerse palette and controls. */
+.admin-nav { display:flex; gap:.75rem; flex-wrap:wrap; margin:1rem 0 2rem; }
+.admin-nav a { padding:.6rem 1rem; border-radius:.75rem; color:inherit; text-decoration:none; }
+.admin-nav a.active { background:var(--primary, #6554c0); color:white; }
+.admin-filters { display:flex; gap:1rem; flex-wrap:wrap; align-items:end; }
+.admin-filters .form-group { flex:1 1 160px; }
+.admin-records { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); gap:1rem; }
+.admin-records .panel { min-width:0; overflow-wrap:anywhere; }
+.admin-records .action-row { flex-wrap:wrap; }
+.admin-detail { margin-top:1.5rem; overflow-wrap:anywhere; }
+.admin-counts { display:flex; flex-wrap:wrap; gap:1.5rem; }
+.admin-counts dd { font-size:1.5rem; margin:0; font-weight:700; }
+.admin-confirm { max-width: min(90vw, 480px); padding:2rem; border:1px solid #ddd; border-radius:1rem; }
+.admin-confirm::backdrop { background:rgba(20,20,40,.55); }
+.admin-pagination { flex-wrap:wrap; margin:1rem 0; }
+@media(max-width:600px) { .admin-filters { flex-direction:column; align-items:stretch; } .admin-filters .form-group { flex:auto; } .admin-confirm { padding:1.25rem; } }

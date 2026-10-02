@@ -246,3 +246,77 @@ Use separate browser profiles for teacher A, teacher B, student A, student B, an
 10. As a teacher, create/edit/publish/unpublish/delete quizzes. Confirm students cannot open creator pages or successfully call creator APIs. Browse public quizzes; confirm draft/private quizzes cannot be played and unlisted quizzes work by link.
 11. Play quizzes with no timer, per-question timer, and whole-quiz timer. Submit, reload the saved result, and check attempt history. Inspect playable responses: no `correctOption`; submitting a client-supplied score must not alter server grading.
 12. Inspect cookies: `HttpOnly`, `SameSite=Lax`, and `Secure` over production HTTPS. Confirm UI identities show QV public IDs rather than MongoDB user IDs.
+
+
+## Branch 8 administration
+
+Authenticated admins reach `/admin` through the navbar or `/dashboard`. The six admin pages cover live metrics, users, quizzes, classrooms, assignments and attempts. Existing student/teacher pages and Branch 4?7 delivery, grading, notifications and messaging remain in place.
+
+### API and data safety
+
+Every `/api/admin` route applies `protect` and `authorizeRoles("admin")`; mutation services also check admin access. Anonymous requests receive 401 and non-admin requests receive 403. References identify a record; they never grant access. Lists use explicit serializers, fixed projections, stable creation-date/internal-ID sorting, page/limit pagination (default 20, maximum 50, maximum page 10000) and escaped literal searches up to 100 characters. Dashboard counts use database count queries, and recent user/quiz/assignment activity is limited to five rows each. No notification body or chat content is exposed by administration.
+
+| API | Purpose |
+| --- | --- |
+| GET /api/admin/dashboard | Live counts and bounded recent metadata |
+| GET /api/admin/users; GET /api/admin/users/:publicId | Search by name/email/QV ID, role/status filters, safe details and counts |
+| PATCH /api/admin/users/:publicId/role | student ? teacher only |
+| PATCH /api/admin/users/:publicId/status | active ? suspended, non-admin only |
+| GET /api/admin/quizzes; GET /api/admin/quizzes/:reference | Metadata search, status/visibility/moderation filters, relationship counts |
+| PATCH /api/admin/quizzes/:reference/moderation | publish, unpublish, restrict, restore |
+| GET /api/admin/groups; GET /api/admin/groups/:code | Name/code/teacher search, status filter, paginated related assignments |
+| PATCH /api/admin/groups/:code/status | archived or active through shared classroom status service |
+| GET /api/admin/assignments; GET /api/admin/assignments/:token | Title/classroom/token search, availability and group-code filters |
+| GET /api/admin/assignments/:token/analytics | Existing frozen-roster analytics, per assignment |
+| GET /api/admin/attempts; GET /api/admin/attempts/:reference | Safe summaries/submitted review; search by student name/QV ID or UUID |
+
+Attempt filters additionally accept status, kind (standalone/assignment), studentPublicId, assignmentToken, from and to. Date bounds are inclusive on startedAt; date-only values mean UTC midnight. Assignment availability filters use server time and the existing exclusive due-time boundary. Broad relationship searches consider at most 100 matching people; the API/UI explicitly reports truncation and asks for a narrower search/QV ID.
+
+Users retain QV IDs, classrooms retain group codes and assignments retain share tokens. Newly created quizzes and attempts get stable UUIDs. Existing records are not backfilled or modified on reads/validation: admin-only legacy quiz/attempt references use `legacy-<existing internal ID>` where no public UUID exists. That necessary fallback is the only internal-ID-derived reference in new admin responses. It is not a public share URL and provides no authorization. Existing standalone quiz/result URLs remain compatible. No custom cryptography or new packages were added. Quiz UUIDs have a sparse unique index declaration; no database index/migration command has been run by this branch implementation.
+
+### Account and moderation rules
+
+`User.accountStatus` is active/suspended. A missing legacy value means active. Suspended users cannot log in or use an existing cookie on protected APIs, including admin APIs. Logout stays available. Unsuspension restores access under the existing cookie expiry/password rules; there is no new session-revocation subsystem. Public registration still accepts only student/teacher and cannot set suspension status.
+
+Normal role management cannot promote to admin, demote an admin, or mutate the acting admin. Admin accounts cannot be suspended or unsuspended here. Student ? teacher preserves memberships, attempts, results, notifications and frozen rosters without blocking ordinary student history. Current-role authorization still applies: retained student memberships do not grant a promoted teacher another teacher's management privileges or student-only attempt eligibility. Teacher ? student is blocked by active owned classrooms, draft/published assignments, or unrestricted published quizzes. Archived classrooms, closed assignments and unpublished quizzes remain historical records; nothing is transferred or deleted. Publishing a quiz or restoring a classroom requires a current teacher/admin owner.
+
+`Quiz.moderationState` is active/restricted; absent legacy values mean active. Restrict sets the source to draft and prevents public discovery/new play/new standalone starts, teacher republishing and new assignment publication. Restore clears the restriction but leaves draft status. Publishing validates all six question types and timers. Existing frozen standalone attempts and published assignments remain gradeable and existing assignment eligibility rules still apply. Historical analytics/results are retained. Admin lists/details never return answer keys, raw frozen snapshots, passwords, auth tokens or raw answer arrays.
+
+Classroom administration uses the existing active/archived states through one shared transaction-based status transition with membership-revision updates. Archive preserves memberships, assignments, results and chat history; existing active-classroom checks deny new sends, membership mutations and assignment attempts. Archive does not rewrite assignment statuses/rosters. Restoring may resume a still-open assignment under its original rules. No hard-delete, bulk action or destructive resource-transfer UI exists. Risky frontend actions use native accessible confirmation dialogs, but backend authorization and transitions never depend on a client confirmation boolean.
+
+### Verification and limitations
+
+Local tests use mocked database methods and loopback HTTP; real MongoDB integration remains opt-in and disabled. Run from the repository root:
+
+```powershell
+$env:TEST_MONGO_URI = ''
+$env:RUN_ASSIGNMENT_MONGO_TESTS = ''
+$env:RUN_COMMUNICATIONS_MONGO_TESTS = ''
+npm test --prefix server -- '--test-name-pattern=^(?!MongoDB)'
+npm run lint --prefix client
+npm run build --prefix client -- --configLoader native
+$adminSyntaxFiles = rg --files server/src server/test server/test-support -g '*.js'
+foreach ($adminSyntaxFile in $adminSyntaxFiles) {
+    node --check $adminSyntaxFile
+    if ($LASTEXITCODE -ne 0) { throw "Syntax check failed: $adminSyntaxFile" }
+}
+git diff --check
+git --no-optional-locks status --untracked-files=all
+```
+
+Counts are a refresh-time overview, not an atomic cross-collection snapshot. Suspension cannot undo a request already running. Transactions and conditional updates protect mutations, but the tests do not prove actual MongoDB locking/index behavior or simultaneous role changes versus creation of teaching resources through older flows. No normal database connection, migration, dependency install, deployment, staging, commit or push is part of implementation verification. Native-dialog behavior, responsive layouts and real database query behavior require manual smoke testing. Existing assignment analytics are reused and may load the scoped assignment's roster/results; dashboard counts never load entire collections.
+
+### Browser smoke tests
+
+1. Log in as an admin: `/dashboard` redirects to `/admin`; the Admin link appears on desktop/mobile. Refresh metrics and compare counts with your known local test data. Empty categories show zero, never demo records.
+2. Open Users: search name, email, exact QV ID and literal punctuation; filter all roles and active/suspended status. Inspect counts. Test next/previous pages with more than 20 users; change filters while a request is pending.
+3. Promote a student with classroom memberships and prior results to teacher. Verify memberships/history/frozen roster rows remain; no ownership is transferred. Return this user to student if they have no active teaching resources. Try demoting a teacher with an active classroom, assignment or published quiz: expect 409 and unchanged ownership.
+4. Try admin promotion, demoting the current admin and suspending any admin through direct API calls: expect 400/403. Public registration must still reject admin and ignore submitted accountStatus. Missing legacy accountStatus must remain active.
+5. With a student signed in in another browser, suspend that student as admin. Their next protected request must receive 403; login must fail; logout must work. Unsuspend and confirm normal login/access returns. Cancel a suspension dialog and confirm nothing changes.
+6. Create/publish a mixed-type quiz; start a standalone attempt and publish a classroom assignment before restriction. Restrict the source quiz: new public play and new assignment publication must fail; teacher republishing must fail. Finish the already-started standalone and eligible frozen assignment: original grading must persist.
+7. Restore the quiz and confirm it stays draft until explicitly published. Publish validation must reject malformed/empty content. Inspect admin list/detail/network responses: no grading keys, snapshots, passwords or auth data.
+8. Open Classrooms: search by name, code, teacher name/email/QV ID; inspect member counts and related assignments. Archive a classroom: history/analytics/chat reading stays available, new sends/invitations/attempts fail. Restore it and confirm eligible activity returns. Cancel archive and restriction dialogs to confirm no changes.
+9. Open Assignments: filter draft/upcoming/open/overdue/closed and search classroom/title. Compare the same quiz assigned to two classrooms: each report keeps its own frozen roster and results. Deleted source resources show historical fallbacks without crashing.
+10. Open Attempts: inspect submitted standalone/assignment results and an in-progress attempt. Completed review shows only student's submitted answers and marks; in-progress has no review. Old results without review retain their summary. Test legacy admin references and new UUID records.
+11. As student and teacher, visit all six `/admin` pages: route guards redirect out. Manually request every admin GET/PATCH endpoint: expect 403 even with valid resource identifiers. Anonymous requests must receive 401.
+12. Test at 360px width, keyboard-only dialog confirmation/cancel/Escape, pagination, empty search, simulated API failure/retry and logout while loading. Recheck advanced quiz creation/play, assignment resume/scoring, groups/invitations/join requests, notifications, messaging and public browsing.

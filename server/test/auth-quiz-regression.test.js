@@ -172,7 +172,7 @@ test("quiz CRUD preserves teacher ownership and permits admin management", async
 test("public discovery includes public creator identity without answer keys", async t => {
   const quiz = { _id: quizId, title: "Public quiz", questions: [{ correctOption: 1 }], creator: person };
   t.mock.method(Quiz, "find", filter => {
-    assert.deepEqual(filter, { status: "published", visibility: "public" });
+    assert.deepEqual(filter, { status: "published", visibility: "public", moderationState: { $ne: "restricted" } });
     return { populate: () => ({ sort: async () => [quiz] }) };
   });
   const res = await request("/quizzes/public");

@@ -122,7 +122,7 @@ const attemptSchema = new mongoose.Schema(
 );
 
 attemptSchema.pre("validate", function () {
-  if (this.assignment && !this.publicId) this.publicId = crypto.randomUUID();
+  if (this.isNew && !this.publicId) this.publicId = crypto.randomUUID();
 });
 attemptSchema.index({ publicId: 1 }, { unique: true, sparse: true });
 attemptSchema.index({ assignment: 1, user: 1, startedAt: -1 });

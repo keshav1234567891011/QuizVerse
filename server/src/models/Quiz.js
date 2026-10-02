@@ -1,9 +1,12 @@
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 
 import { questionSchema } from "./questionSchemas.js";
 
 const quizSchema = new mongoose.Schema(
   {
+    publicId: { type: String, immutable: true },
+    moderationState: { type: String, enum: ["active", "restricted"], default: "active" },
     title: {
       type: String,
       required: true,
@@ -70,6 +73,10 @@ const quizSchema = new mongoose.Schema(
   }
 );
 
+quizSchema.index({ publicId: 1 }, { unique: true, sparse: true });
+quizSchema.pre("validate", function () {
+  if (this.isNew && !this.publicId) this.publicId = crypto.randomUUID();
+});
 const Quiz = mongoose.model("Quiz", quizSchema);
 
 export default Quiz;
