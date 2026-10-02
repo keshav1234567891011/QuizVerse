@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
+import QuestionInput from "../components/QuestionInput.jsx";
+import { hasAnswer } from "../config/questions.js";
 import { API_URL } from "../config/api.js";
 import { assignmentApi } from "../config/assignments.js";
 function QuizPlayer() {
@@ -106,6 +108,8 @@ function StandalonePlayer() {
         return;
       }
 
+      const activeQuiz = data.quiz || quiz;
+      setQuiz(activeQuiz);
       setAttemptId(data.attempt._id);
 
       attemptIdRef.current = data.attempt._id;
@@ -114,7 +118,7 @@ function StandalonePlayer() {
       answersRef.current = {};
 
       setCurrentQuestionIndex(0);
-      setTimeLeft(quiz.timerMode === "whole-quiz" ? Number(quiz.totalTimeLimit) : quiz.timerMode === "per-question" ? Number(quiz.questions[0]?.timeLimit) || 30 : null);
+      setTimeLeft(activeQuiz.timerMode === "whole-quiz" ? Number(activeQuiz.totalTimeLimit) : activeQuiz.timerMode === "per-question" ? Number(activeQuiz.questions[0]?.timeLimit) || 30 : null);
 
       setResult(null);
 
@@ -132,11 +136,11 @@ function StandalonePlayer() {
   // SELECT ANSWER
   // =========================
 
-  const selectAnswer = (questionId, optionIndex) => {
+  const selectAnswer = (questionId, answer) => {
     setAnswers((previous) => {
       const updated = {
         ...previous,
-        [questionId]: optionIndex,
+        [questionId]: answer,
       };
 
       answersRef.current = updated;
@@ -154,7 +158,7 @@ function StandalonePlayer() {
       return;
     }
 
-    const answeredCount = Object.keys(answersRef.current).length;
+    const answeredCount = Object.values(answersRef.current).filter(hasAnswer).length;
 
     if (!skipConfirmation) {
       const unanswered = quiz.questions.length - answeredCount;
@@ -187,7 +191,7 @@ function StandalonePlayer() {
       const formattedAnswers = quiz.questions.map((question) => ({
         questionId: question._id,
 
-        selectedOption: answersRef.current[question._id] ?? null,
+        ...(answersRef.current[question._id] || {}),
       }));
 
       const response = await fetch(
@@ -568,9 +572,9 @@ function StandalonePlayer() {
 
   const currentQuestion = quiz.questions[currentQuestionIndex];
 
-  const selectedOption = answers[currentQuestion._id];
+  const selectedAnswer = answers[currentQuestion._id] || {};
 
-  const answeredCount = Object.keys(answers).length;
+  const answeredCount = Object.values(answers).filter(hasAnswer).length;
 
   const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
 
@@ -628,29 +632,7 @@ function StandalonePlayer() {
 
           {/* OPTIONS */}
 
-          <div className="player-options">
-            {currentQuestion.options.map((option, optionIndex) => {
-              const isSelected = selectedOption === optionIndex;
-
-              return (
-                <button
-                  type="button"
-                  className={`player-option ${
-                    isSelected ? "player-option-selected" : ""
-                  }`}
-                  key={optionIndex}
-                  onClick={() => selectAnswer(currentQuestion._id, optionIndex)}
-                  aria-pressed={isSelected}
-                >
-                  <span className="player-option-letter">
-                    {String.fromCharCode(65 + optionIndex)}
-                  </span>
-
-                  <span>{option}</span>
-                </button>
-              );
-            })}
-          </div>
+          <QuestionInput question={currentQuestion} answer={selectedAnswer} disabled={submitting} onChange={answer => selectAnswer(currentQuestion._id, answer)} />
         </div>
 
         {/* FOOTER */}
@@ -701,13 +683,24 @@ function AssignedPlayer({ token }) {
   const navigate = useNavigate();
   const [details, setDetails] = useState(null), [session, setSession] = useState(null);
   const [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const [drafts, setDrafts] = useState({});
+  const [saveNotice, setSaveNotice] = useState("");
+  const draftsRef = useRef({});
   const [index, setIndex] = useState(0), [clock, setClock] = useState(() => Date.now());
   const currentSession = useRef(null), inFlight = useRef(false), clockOffset = useRef(0), autoSubmitted = useRef(false);
   const receive = useCallback(value => {
     currentSession.current = value;
     clockOffset.current = new Date(value.serverNow).getTime() - Date.now();
     setSession(value);
-    if (value.quiz.timerMode === "per-question") setIndex(value.currentQuestionIndex);
+    if (value.quiz.timerMode === "per-question") {
+      const expired = Object.keys(draftsRef.current).filter(key => Number(key) < value.currentQuestionIndex);
+      if (expired.length) {
+        const next = { ...draftsRef.current }; expired.forEach(key => delete next[key]);
+        draftsRef.current = next; setDrafts(next);
+        setSaveNotice("A question window ended before your unsaved changes were saved. Only server-saved answers will be graded.");
+      }
+      setIndex(value.currentQuestionIndex);
+    }
   }, []);
   useEffect(() => {
     const controller = new AbortController();
@@ -716,7 +709,7 @@ function AssignedPlayer({ token }) {
     return () => controller.abort();
   }, [token]);
   const operation = useCallback(async (action, body) => {
-    if (inFlight.current) return;
+    if (inFlight.current) return false;
     inFlight.current = true; setBusy(true); setError("");
     try {
       const active = currentSession.current;
@@ -726,9 +719,37 @@ function AssignedPlayer({ token }) {
           method: action === "answer" ? "PUT" : "POST", body: JSON.stringify(body || {}) });
       if (data.result) navigate(`/assignment-attempts/${data.result.publicId}/result`, { replace: true });
       else receive(data.session);
-    } catch (e) { setError(e.message); }
+      return true;
+    } catch (e) { setError(e.message); return false; }
     finally { inFlight.current = false; setBusy(false); }
   }, [token, navigate, receive]);
+  const saveDrafts = useCallback(async () => {
+    for (const [key, answer] of Object.entries(draftsRef.current)) {
+      if (!await operation("answer", { key, ...answer })) return false;
+      if (draftsRef.current[key] === answer) {
+        const next = { ...draftsRef.current }; delete next[key]; draftsRef.current = next; setDrafts(next);
+      }
+    }
+    return true;
+  }, [operation]);
+  function updateAnswer(answer, question) {
+    const next = { ...draftsRef.current, [String(index)]: answer };
+    draftsRef.current = next; setDrafts(next);
+    // Retain the existing immediate persistence of choice answers.
+    if (["singleChoice", "multipleSelect", "trueFalse"].includes(question.questionType || "singleChoice") && !inFlight.current) saveDrafts();
+  }
+  async function saveThen(action, body) {
+    if (inFlight.current) return;
+    const active = currentSession.current, now = Date.now() + clockOffset.current;
+    const expired = (active.expiresAt && now >= new Date(active.expiresAt).getTime()) ||
+      (active.questionClosesAt && now >= new Date(active.questionClosesAt).getTime());
+    // Once a window ends, submission can only grade previously saved responses.
+    if (!(action === "submit" && expired) && !await saveDrafts()) return;
+    if (action) await operation(action, body);
+  }
+  async function navigateQuestion(nextIndex) {
+    if (!inFlight.current && await saveDrafts()) setIndex(nextIndex);
+  }
   useEffect(() => {
     if (!session) return;
     const interval = setInterval(() => {
@@ -739,23 +760,27 @@ function AssignedPlayer({ token }) {
       if (finished || (active.expiresAt && now >= new Date(active.expiresAt).getTime()) ||
         (active.dueAt && now >= new Date(active.dueAt).getTime() - 1500)) {
         // Saved answers are graded by the server. No answer key or client score is sent.
-        if (!inFlight.current && !autoSubmitted.current) { autoSubmitted.current = true; operation("submit"); }
+        if (!inFlight.current && !autoSubmitted.current) { autoSubmitted.current = true;
+          const expired = finished || (active.expiresAt && now >= new Date(active.expiresAt).getTime());
+          (expired ? Promise.resolve(true) : saveDrafts()).then(saved => { if (saved) operation("submit"); else autoSubmitted.current = false; }); }
       } else if (active.questionClosesAt && now >= new Date(active.questionClosesAt).getTime()) {
         if (!inFlight.current) operation("refresh");
       }
     }, 500);
     return () => clearInterval(interval);
-  }, [session, operation]);
-  if (!session) return <main className="player-shell"><section className="panel"><span className="eyebrow">CLASSROOM CHALLENGE</span><h1>{details?.assignment.title || "Assignment quiz"}</h1>{error && <p className="feedback feedback-error" role="alert">{error}</p>}{!details && !error && <p role="status">Loading assignment…</p>}{details && <><p>{details.assignment.group.name} · {details.assignment.state}</p><p>Answers save as you select them. Timers and assignment eligibility are enforced by the server. Refreshing resumes this attempt.</p><button className="btn btn-primary" disabled={busy || details.canManage || details.assignment.state !== "open"} onClick={() => operation("start")}>{busy ? "Starting…" : "Start or resume attempt"}</button>{details.canManage && <p>Teachers can view analytics; only assigned students can attempt.</p>}</>}<Link className="btn btn-secondary" to={`/a/${token}`}>Back to assignment</Link></section></main>;
+  }, [session, operation, saveDrafts]);
+  if (!session) return <main className="player-shell"><section className="panel"><span className="eyebrow">CLASSROOM CHALLENGE</span><h1>{details?.assignment.title || "Assignment quiz"}</h1>{error && <p className="feedback feedback-error" role="alert">{error}</p>}{!details && !error && <p role="status">Loading assignment…</p>}{details && <><p>{details.assignment.group.name} · {details.assignment.state}</p><p>Save your answers before moving on. Timers and assignment eligibility are enforced by the server. Refreshing resumes this attempt.</p><button className="btn btn-primary" disabled={busy || details.canManage || details.assignment.state !== "open"} onClick={() => operation("start")}>{busy ? "Starting…" : "Start or resume attempt"}</button>{details.canManage && <p>Teachers can view analytics; only assigned students can attempt.</p>}</>}<Link className="btn btn-secondary" to={`/a/${token}`}>Back to assignment</Link></section></main>;
   const quiz = session.quiz, question = quiz.questions[index];
-  const selected = session.answers.find(a => a.key === String(index))?.selectedOption;
+  const selected = drafts[String(index)] || session.answers.find(a => a.key === String(index)) || {};
   const deadlines = [session.expiresAt, session.dueAt, session.questionClosesAt].filter(Boolean).map(d => new Date(d).getTime());
   const seconds = deadlines.length ? Math.max(0, Math.ceil((Math.min(...deadlines) - clock) / 1000)) : null;
   return <main className="player-shell"><section className="player-card"><div className="page-toolbar"><div><span className="eyebrow">ASSIGNMENT · ATTEMPT {session.attemptNumber}</span><h1>{quiz.title}</h1></div>{seconds !== null && <span className="pill" aria-live="off">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} remaining</span>}</div>
+    {saveNotice && <p className="feedback" role="status">{saveNotice}</p>}
     {error && <p className="feedback feedback-error" role="alert">{error}</p>}
-    {question ? <><p className="muted">Question {index + 1} of {quiz.questions.length} · {question.marks} marks</p><h2>{question.questionText}</h2><fieldset className="assignment-options" disabled={busy}><legend className="sr-only">Choose your answer</legend>{question.options.map((option, optionIndex) => <label className={`assignment-option ${selected === optionIndex ? "is-selected" : ""}`} key={optionIndex}><input type="radio" name={`question-${index}`} checked={selected === optionIndex} onChange={() => operation("answer", { key: String(index), selectedOption: optionIndex })} /><span>{option}</span></label>)}</fieldset>
-      <div className="assignment-actions">{quiz.timerMode !== "per-question" && <><button className="btn btn-secondary" disabled={busy || index === 0} onClick={() => setIndex(index - 1)}>Previous</button><button className="btn btn-secondary" disabled={busy || index === quiz.questions.length - 1} onClick={() => setIndex(index + 1)}>Next</button></>}{quiz.timerMode === "per-question" && index < quiz.questions.length - 1 && <button className="btn btn-secondary" disabled={busy} onClick={() => operation("advance", { key: String(index) })}>Save & next question</button>}<button className="btn btn-primary" disabled={busy} onClick={() => operation("submit")}>{busy ? "Saving…" : "Submit saved answers"}</button></div>
-      <p className="muted" role="status">{busy ? "Saving your progress…" : "Your selected answers are saved on the server."}</p></> : <><p>Question time has ended.</p><button className="btn btn-primary" disabled={busy} onClick={() => operation("submit")}>Submit saved answers</button></>}
+    {question ? <><p className="muted">Question {index + 1} of {quiz.questions.length} · {question.marks} marks</p><h2>{question.questionText}</h2><QuestionInput question={question} answer={selected} disabled={busy} onChange={answer => updateAnswer(answer, question)} />
+      <button className="btn btn-secondary" disabled={busy || !Object.keys(drafts).length} onClick={() => saveThen()}>Save answer</button>
+      <div className="assignment-actions">{quiz.timerMode !== "per-question" && <><button className="btn btn-secondary" disabled={busy || index === 0} onClick={() => navigateQuestion(index - 1)}>Previous</button><button className="btn btn-secondary" disabled={busy || index === quiz.questions.length - 1} onClick={() => navigateQuestion(index + 1)}>Next</button></>}{quiz.timerMode === "per-question" && index < quiz.questions.length - 1 && <button className="btn btn-secondary" disabled={busy} onClick={() => saveThen("advance", { key: String(index) })}>Save & next question</button>}<button className="btn btn-primary" disabled={busy} onClick={() => saveThen("submit")}>{busy ? "Saving…" : "Submit saved answers"}</button></div>
+      <p className="muted" role="status">{busy ? "Saving your progress…" : Object.keys(drafts).length ? "You have unsaved changes. Save before leaving or the timer ends." : "Your answers are saved on the server."}</p></> : <><p>Question time has ended.</p><button className="btn btn-primary" disabled={busy} onClick={() => saveThen("submit")}>Submit saved answers</button></>}
   </section></main>;
 }
 

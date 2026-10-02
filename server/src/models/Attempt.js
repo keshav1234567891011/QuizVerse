@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import crypto from "node:crypto";
+import { snapshotSchema } from "./questionSchemas.js";
 
 const answerSchema = new mongoose.Schema(
   {
@@ -14,6 +15,9 @@ const answerSchema = new mongoose.Schema(
       min: 0,
     },
 
+    selectedOptions: { type: [Number], default: undefined },
+    booleanAnswer: Boolean, textAnswer: String, numericAnswer: Number,
+    blankAnswers: { type: [String], default: undefined },
     isCorrect: {
       type: Boolean,
       default: false,
@@ -32,6 +36,8 @@ const answerSchema = new mongoose.Schema(
 
 const attemptSchema = new mongoose.Schema(
   {
+    quizSnapshot: { type: snapshotSchema, select: false, default: null },
+    review: { type: [new mongoose.Schema({ key: String, questionType: String, questionText: String, submittedAnswer: String, state: String, earnedMarks: Number, availableMarks: Number }, { _id: false })], default: undefined },
     assignment: { type: mongoose.Schema.Types.ObjectId, ref: "Assignment", default: null },
     // Only new assignment attempts receive a public UUID; legacy records need no backfill.
     publicId: { type: String, immutable: true },

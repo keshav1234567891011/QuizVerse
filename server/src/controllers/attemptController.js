@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import Quiz from "../models/Quiz.js";
 import Attempt from "../models/Attempt.js";
 import Assignment from "../models/Assignment.js";
+import { quizSnapshot, playableQuestion } from "../services/questionService.js";
+import { reviewQuestions, safeReview } from "../services/resultService.js";
 import { gradeAnswers } from "../services/scoringService.js";
 import { mutateAssignedAttempt, assignmentView, resultView } from "../services/assignmentService.js";
 
@@ -56,7 +58,9 @@ export const startAttempt = async (req, res) => {
       0
     );
 
+    const frozen = quizSnapshot(quiz);
     const attempt = await Attempt.create({
+      quizSnapshot: frozen,
       quiz: quiz._id,
       user: req.user._id,
       totalMarks,
@@ -66,6 +70,7 @@ export const startAttempt = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Attempt started",
+      quiz: { _id: quiz._id, ...frozen, questionCount: frozen.questions.length, questions: frozen.questions.map(q => ({ _id: q._id, ...playableQuestion(q) })) },
 
       attempt: {
         _id: attempt._id,
@@ -79,7 +84,7 @@ export const startAttempt = async (req, res) => {
   } catch (error) {
     console.error("Start attempt error:", error);
 
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
       message:
         "Something went wrong while starting the attempt",
@@ -108,9 +113,7 @@ export const submitAttempt = async (req, res) => {
       });
     }
 
-    const attempt = await Attempt.findById(
-      attemptId
-    );
+    const attempt = await Attempt.findById(attemptId).select("+quizSnapshot");
 
     if (!attempt) {
       return res.status(404).json({
@@ -143,9 +146,7 @@ export const submitAttempt = async (req, res) => {
       return res.json({ success: true, result });
     }
 
-    const quiz = await Quiz.findById(
-      attempt.quiz
-    );
+    const quiz = attempt.quizSnapshot || await Quiz.findById(attempt.quiz);
 
     if (!quiz) {
       return res.status(404).json({
@@ -167,6 +168,7 @@ export const submitAttempt = async (req, res) => {
     );
 
     Object.assign(attempt, graded);
+    attempt.review = reviewQuestions(quiz.questions, attempt.answers);
     attempt.status = "submitted";
     attempt.submittedAt = submittedAt;
     attempt.timeTakenSeconds =
@@ -181,7 +183,8 @@ export const submitAttempt = async (req, res) => {
 
       result: {
         attemptId: attempt._id,
-        quizId: quiz._id,
+        quizId: attempt.quiz,
+        review: safeReview(attempt),
         score: attempt.score,
         totalMarks: attempt.totalMarks,
         correctAnswers:
@@ -307,7 +310,7 @@ export const getAttemptResult = async (req, res) => {
 
       result: {
         attemptId: attempt._id,
-
+        review: safeReview(attempt),
         quiz: attempt.quiz,
 
         score: attempt.score,

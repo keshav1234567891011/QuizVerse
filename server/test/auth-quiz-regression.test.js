@@ -186,7 +186,7 @@ test("scoring ignores client score, preserves unanswered zeroes, and rejects rep
   const quiz = new Quiz({ _id: quizId, title: "Test quiz", category: "Science", creator: userId, questions: [{ _id: questionId, questionText: "Question?", options: ["A", "B"], correctOption: 1, marks: 2 }, { questionText: "Other?", options: ["A", "B"], correctOption: 0, marks: 3 }] });
   const attempt = { _id: attemptId, quiz: quizId, user: userId, status: "in-progress", startedAt: new Date(), save: async () => {} };
   t.mock.method(Quiz, "findById", async () => quiz);
-  t.mock.method(Attempt, "findById", async () => attempt);
+  t.mock.method(Attempt, "findById", () => ({ select: async () => attempt }));
   const req = { user: person, params: { attemptId }, body: { score: 9999, answers: [{ questionId, selectedOption: 1, isCorrect: true, marksAwarded: 9999 }] } };
   const res = response();
   await submitAttempt(req, res);

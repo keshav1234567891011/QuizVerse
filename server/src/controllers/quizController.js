@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Quiz from "../models/Quiz.js";
+import { normalizeQuestions, validateQuizContent, playableQuestion } from "../services/questionService.js";
 const canManageQuiz = (
   quiz,
   user
@@ -35,67 +36,15 @@ export const createQuiz = async (req, res) => {
       });
     }
 
-    // Make sure questions is actually an array
-    if (questions && !Array.isArray(questions)) {
-      return res.status(400).json({
-        success: false,
-        message: "Questions must be an array",
-      });
-    }
-
-    // Validate every question before saving
-    if (questions?.length) {
-      for (let i = 0; i < questions.length; i++) {
-        const question = questions[i];
-
-        if (!question.questionText) {
-          return res.status(400).json({
-            success: false,
-            message: `Question ${i + 1} must have question text`,
-          });
-        }
-
-        if (
-          !Array.isArray(question.options) ||
-          question.options.length < 2
-        ) {
-          return res.status(400).json({
-            success: false,
-            message: `Question ${i + 1} must have at least 2 options`,
-          });
-        }
-
-        if (
-          question.correctOption === undefined ||
-          question.correctOption < 0 ||
-          question.correctOption >= question.options.length
-        ) {
-          return res.status(400).json({
-            success: false,
-            message: `Question ${i + 1} has an invalid correct option`,
-          });
-        }
-      }
-    }
-
-    // Whole-quiz timer needs a total time
-    if (
-      timerMode === "whole-quiz" &&
-      (!totalTimeLimit || totalTimeLimit < 1)
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "A whole-quiz timer requires a valid total time limit",
-      });
-    }
+    const normalizedQuestions = normalizeQuestions(questions ?? []);
+    validateQuizContent({ questions: normalizedQuestions, status, timerMode, totalTimeLimit });
 
     const quiz = await Quiz.create({
       title,
       description,
       category,
       difficulty,
-      questions,
+      questions: normalizedQuestions,
       timerMode,
       totalTimeLimit,
       visibility,
@@ -115,9 +64,9 @@ export const createQuiz = async (req, res) => {
   } catch (error) {
     console.error("Create quiz error:", error);
 
-    res.status(500).json({
+    res.status(error.status || (error.name === "ValidationError" ? 400 : 500)).json({
       success: false,
-      message: "Something went wrong while creating the quiz",
+      message: error.status || error.name === "ValidationError" ? error.message : "Something went wrong while creating the quiz",
     });
   }
 };
@@ -219,12 +168,14 @@ export const updateQuiz = async (req, res) => {
       "status",
     ];
 
+    if (req.body.questions !== undefined) req.body.questions = normalizeQuestions(req.body.questions, quiz.questions);
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) {
         quiz[field] = req.body[field];
       }
     });
 
+    validateQuizContent(quiz);
     await quiz.save();
 
     res.status(200).json({
@@ -235,9 +186,9 @@ export const updateQuiz = async (req, res) => {
   } catch (error) {
     console.error("Update quiz error:", error);
 
-    res.status(500).json({
+    res.status(error.status || (error.name === "ValidationError" ? 400 : 500)).json({
       success: false,
-      message: "Something went wrong while updating the quiz",
+      message: error.status || error.name === "ValidationError" ? error.message : "Something went wrong while updating the quiz",
     });
   }
 };
@@ -317,13 +268,7 @@ export const getPlayableQuiz = async (req, res) => {
       });
     }
 
-    const safeQuestions = quiz.questions.map((question) => ({
-      _id: question._id,
-      questionText: question.questionText,
-      options: question.options,
-      marks: question.marks,
-      timeLimit: question.timeLimit,
-    }));
+    const safeQuestions = quiz.questions.map(q => ({ _id: q._id, ...playableQuestion(q) }));
 
     res.status(200).json({
       success: true,

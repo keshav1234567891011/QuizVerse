@@ -1,17 +1,8 @@
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 
-const snapshotQuestion = new mongoose.Schema({
-  questionText: { type: String, required: true },
-  options: [{ type: String, required: true }],
-  correctOption: { type: Number, required: true },
-  marks: { type: Number, required: true },
-  timeLimit: { type: Number, required: true },
-});
-const snapshot = new mongoose.Schema({
-  title: String, description: String, category: String, difficulty: String,
-  timerMode: String, totalTimeLimit: Number, questions: [snapshotQuestion],
-}, { _id: false });
+import { snapshotSchema as snapshot } from "./questionSchemas.js";
+
 const rosterEntry = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   name: { type: String, required: true },
