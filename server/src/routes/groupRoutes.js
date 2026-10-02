@@ -1,9 +1,11 @@
 import express from "express";
 import { createGroup, getMyGroups, getGroupByCode, inviteStudent, requestToJoin, respond, listRequests, removeStudentFromGroup, deleteGroup } from "../controllers/groupController.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
+import groupMessageRoutes from "./groupMessageRoutes.js";
 const router = express.Router();
 const managers = authorizeRoles("teacher", "admin");
 router.use(protect);
+router.use("/:code/messages", groupMessageRoutes);
 router.get("/", getMyGroups);
 router.post("/", managers, createGroup);
 router.get("/requests", listRequests);

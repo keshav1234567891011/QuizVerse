@@ -1954,3 +1954,17 @@ button:disabled { cursor:wait; opacity:.6; transform:none; }
 .status-upcoming { color: #70561a; background: #fff4cf; }
 .status-overdue, .status-closed { color: #864047; background: #fbe9eb; }
 @media (max-width: 600px) { .assignment-actions .btn { flex: 1 1 auto; } .assignment-dates { gap: .6rem; } }
+.notification-list { display: grid; gap: 1rem; }
+.notification-card { margin: 0; overflow-wrap: anywhere; }
+.notification-unread { border-left: 4px solid var(--purple, #7952d5); }
+.notification-filter { display: inline-flex; gap: .65rem; align-items: center; }
+.notification-filter input { width: 1.1rem; height: 1.1rem; accent-color: #7952d5; }
+.chat-shell { max-width: 1100px; }
+.chat-history { display: grid; gap: 1rem; }
+.chat-message { border: 1px solid var(--line, #e9e7f0); padding: 1rem; border-radius: 14px; }
+.chat-message p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat-message time, .chat-message small { font-size: .8rem; color: var(--muted, #6f6980); }
+.chat-announcement { border-color: #b6a2ed; background: #f5f1ff; }
+.chat-composer textarea { width: 100%; resize: vertical; padding: 1rem; border-radius: 12px; border: 1px solid var(--line, #ddd); font: inherit; }
+@media(max-width:1150px) { .navbar-container { flex-wrap:wrap; } .navbar-links { flex-wrap:wrap; } }
+@media(max-width:600px) { .chat-message .section-row { align-items:flex-start; flex-direction:column; gap:.5rem; } }

@@ -20,9 +20,13 @@ import CreateAssignment from "./pages/CreateAssignment.jsx";
 import AssignmentDetail from "./pages/AssignmentDetail.jsx";
 import AssignmentResult from "./pages/AssignmentResult.jsx";
 
+import { NotificationProvider } from "./context/NotificationContext.jsx";
+import Notifications from "./pages/Notifications.jsx";
+import GroupChat from "./pages/GroupChat.jsx";
+
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter><NotificationProvider>
       <Navbar />
 
       <div id="main-content" tabIndex={-1}><Routes>
@@ -41,6 +45,8 @@ function App() {
           }
         />
 
+        <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+        <Route path="/groups/:code/chat" element={<ProtectedRoute><GroupChat /></ProtectedRoute>} />
         <Route path="/browse" element={<BrowseQuizzes />} />
         <Route path="/assignments" element={<ProtectedRoute><Assignments /></ProtectedRoute>} />
         <Route path="/assignments/create" element={<ProtectedRoute roles={["teacher", "admin"]}><CreateAssignment /></ProtectedRoute>} />
@@ -112,7 +118,7 @@ function App() {
         />
         <Route path="*" element={<main><h1>Page not found</h1><p>Choose a destination from the navigation to keep exploring.</p></main>} />
       </Routes></div>
-    </BrowserRouter>
+    </NotificationProvider></BrowserRouter>
   );
 }
 

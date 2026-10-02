@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Group from "../models/Group.js";
 import User from "../models/User.js";
 import GroupInvitation from "../models/GroupInvitation.js";
+import { notify } from "./notificationService.js";
 
 export const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 export function identifier(value, prefix) {
@@ -40,6 +41,11 @@ export async function createMembershipRequest({ user, code, publicId, kind }) {
     const [request] = await GroupInvitation.create([{
       group: group._id, student: student._id, invitedBy: user._id, kind,
     }], { session });
+    await notify({ recipients: [kind === "invitation" ? student._id : group.teacher], actor: user,
+      type: kind === "invitation" ? "invitation-received" : "join-request-received",
+      title: kind === "invitation" ? "Classroom invitation" : "New classroom join request",
+      message: kind === "invitation" ? `You were invited to ${group.name || "a classroom"}.` : `${student.name || "A student"} requested to join ${group.name || "your classroom"}.`,
+      related: { groupCode: group.groupCode, groupName: group.name, requestPublicId: request.publicId }, eventKey: `request:${request.publicId}:created`, session });
     return request;
   });
 }
@@ -64,6 +70,11 @@ export async function respondToRequest({ user, publicId, decision }) {
     request.status = decision;
     request.respondedAt = new Date();
     await request.save({ session });
+    await notify({ recipients: request.kind === "invitation" ? [request.invitedBy, group.teacher] : [request.student, group.teacher], actor: user,
+      type: `${request.kind === "invitation" ? "invitation" : "join-request"}-${decision}`,
+      title: `Classroom ${request.kind === "invitation" ? "invitation" : "join request"} ${decision}`,
+      message: `${user.name || "A classroom member"} ${decision} the ${request.kind === "invitation" ? "invitation" : "join request"} for ${group.name || "the classroom"}.`,
+      related: { groupCode: group.groupCode, groupName: group.name, requestPublicId: request.publicId }, eventKey: `request:${request.publicId}:${decision}`, session });
     return request;
   });
 }

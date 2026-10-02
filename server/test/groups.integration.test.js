@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test from "node:test";
 import mongoose from "mongoose";
+import Notification from "../src/models/Notification.js";
 import User from "../src/models/User.js";
 import Group from "../src/models/Group.js";
 import GroupInvitation from "../src/models/GroupInvitation.js";
@@ -22,7 +23,7 @@ test("MongoDB transactions prevent competing requests and duplicate membership",
     } finally { await mongoose.disconnect(); }
   });
   await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: database, serverSelectionTimeoutMS: 10000 });
-  await Promise.all([User.init(), Group.init(), GroupInvitation.init()]);
+  await Promise.all([Notification.init(), User.init(), Group.init(), GroupInvitation.init()]);
   const [teacher, student, outsider] = await User.create([
     { name: "Test Teacher", email: "teacher@example.test", password: "test-hash-placeholder", role: "teacher" },
     { name: "Test Student", email: "student@example.test", password: "test-hash-placeholder", role: "student" },

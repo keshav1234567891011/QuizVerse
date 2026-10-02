@@ -39,6 +39,6 @@ export default function Dashboard() {
       {summary.quizzes.length === 0 ? <div className="empty-inline"><h3>{admin ? "No platform quizzes yet" : "Your first quiz starts with an idea"}</h3><p>Create a draft, add your questions, and publish when you are ready.</p><Link className="btn btn-primary" to="/quizzes/create">Create a quiz</Link></div> : <div className="dashboard-quiz-list">{summary.quizzes.slice(0, 3).map(quiz => <Link className="dashboard-quiz-row" key={quiz._id} to={`/quizzes/${quiz._id}/edit`}><div><strong>{quiz.title}</strong><span>{quiz.category} · {quiz.questions.length} questions</span></div><span className={`status-badge status-${quiz.status}`}>{quiz.status}</span></Link>)}</div>}
     </section>}
     {!student && <p className="muted">Open an assignment to view its frozen roster, completion rate, and individual student results.</p>}
-    <section className="identity-card"><div><span className="eyebrow">YOUR QUIZVERSE ID</span><strong>{user.publicId || "ID not assigned yet"}</strong><p>Use this ID when connecting with your classroom.</p></div><span className="pill">{user.role}</span></section>
+    <p><Link className="btn btn-secondary" to="/notifications">View classroom notifications</Link></p><section className="identity-card"><div><span className="eyebrow">YOUR QUIZVERSE ID</span><strong>{user.publicId || "ID not assigned yet"}</strong><p>Use this ID when connecting with your classroom.</p></div><span className="pill">{user.role}</span></section>
   </main>;
 }
