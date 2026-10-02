@@ -1,5 +1,18 @@
 import mongoose from "mongoose";
 import Quiz from "../models/Quiz.js";
+const canManageQuiz = (
+  quiz,
+  user
+) => {
+  if (user.role === "admin") {
+    return true;
+  }
+
+  return (
+    quiz.creator.toString() ===
+    user._id.toString()
+  );
+};
 export const createQuiz = async (req, res) => {
   try {
     const {
@@ -110,10 +123,10 @@ export const createQuiz = async (req, res) => {
 };
 export const getMyQuizzes = async (req, res) => {
   try {
-    const quizzes = await Quiz.find({
+    const quizzes = await Quiz.find(req.user.role === "admin" ? {} : {
       creator: req.user._id,
     }).sort({
-      createdAt: -1,
+      updatedAt: -1,
     });
 
     res.status(200).json({
@@ -126,7 +139,7 @@ export const getMyQuizzes = async (req, res) => {
 
     res.status(500).json({
       success: false,
-      message: "Something went wrong while fetching your quizzes",
+      message: "Something went wrong while loading your quizzes",
     });
   }
 };
@@ -148,7 +161,7 @@ export const getMyQuizById = async (req, res) => {
       });
     }
 
-    if (quiz.creator.toString() !== req.user._id.toString()) {
+if (!canManageQuiz(quiz, req.user)) {
       return res.status(403).json({
         success: false,
         message: "You are not allowed to access this quiz",
@@ -187,7 +200,7 @@ export const updateQuiz = async (req, res) => {
       });
     }
 
-    if (quiz.creator.toString() !== req.user._id.toString()) {
+    if (!canManageQuiz(quiz, req.user)) {
       return res.status(403).json({
         success: false,
         message: "You are not allowed to edit this quiz",
@@ -247,7 +260,7 @@ export const deleteQuiz = async (req, res) => {
       });
     }
 
-    if (quiz.creator.toString() !== req.user._id.toString()) {
+    if (!canManageQuiz(quiz, req.user)) {
       return res.status(403).json({
         success: false,
         message: "You are not allowed to delete this quiz",
@@ -342,7 +355,7 @@ export const getPublicQuizzes = async (req, res) => {
       status: "published",
       visibility: "public",
     })
-      .populate("creator", "name")
+      .populate("creator", "name publicId")
       .sort({
         updatedAt: -1,
       });
@@ -364,7 +377,7 @@ export const getPublicQuizzes = async (req, res) => {
 
       creator: quiz.creator
         ? {
-            _id: quiz.creator._id,
+            publicId: quiz.creator.publicId,
             name: quiz.creator.name,
           }
         : null,

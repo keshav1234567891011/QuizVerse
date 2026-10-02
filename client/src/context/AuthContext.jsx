@@ -1,6 +1,7 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { API_URL } from "../config/api.js";
-const AuthContext = createContext();
+import { AuthContext } from "./auth.js";
+
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -27,20 +28,21 @@ export function AuthProvider({ children }) {
     }
   };
   const logout = async () => {
-    try {
-      await fetch(`${API_URL}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (error) {
-      console.error("Logout failed:", error);
-    } finally {
-      setUser(null);
-    }
+    const response = await fetch(`${API_URL}/api/auth/logout`, {
+      method: "POST", credentials: "include",
+    });
+    if (!response.ok) throw new Error("Logout failed");
+    setUser(null);
   };
 
   useEffect(() => {
-    checkAuth();
+    const controller = new AbortController();
+    fetch(`${API_URL}/api/auth/me`, { credentials: "include", signal: controller.signal })
+      .then(async response => response.ok ? (await response.json()).user : null)
+      .then(setUser)
+      .catch(error => { if (error.name !== "AbortError") setUser(null); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, []);
 
   return (
@@ -55,8 +57,4 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  return useContext(AuthContext);
 }

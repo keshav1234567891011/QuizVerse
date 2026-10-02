@@ -1,0 +1,16 @@
+import express from "express";
+import { createGroup, getMyGroups, getGroupByCode, inviteStudent, requestToJoin, respond, listRequests, removeStudentFromGroup, deleteGroup } from "../controllers/groupController.js";
+import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
+const router = express.Router();
+const managers = authorizeRoles("teacher", "admin");
+router.use(protect);
+router.get("/", getMyGroups);
+router.post("/", managers, createGroup);
+router.get("/requests", listRequests);
+router.post("/join-requests", authorizeRoles("student"), requestToJoin);
+router.post("/requests/:publicId/respond", respond);
+router.get("/:code", getGroupByCode);
+router.post("/:code/invitations", managers, inviteStudent);
+router.delete("/:code/students/:publicId", managers, removeStudentFromGroup);
+router.delete("/:code", managers, deleteGroup);
+export default router;
