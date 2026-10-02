@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { API_URL } from "../config/api.js";
+import { assignmentApi } from "../config/assignments.js";
 function QuizPlayer() {
+  const { token } = useParams();
+  return token ? <AssignedPlayer key={token} token={token} /> : <StandalonePlayer />;
+}
+function StandalonePlayer() {
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -690,6 +695,68 @@ function QuizPlayer() {
       </section>
     </main>
   );
+}
+
+function AssignedPlayer({ token }) {
+  const navigate = useNavigate();
+  const [details, setDetails] = useState(null), [session, setSession] = useState(null);
+  const [error, setError] = useState(""), [busy, setBusy] = useState(false);
+  const [index, setIndex] = useState(0), [clock, setClock] = useState(() => Date.now());
+  const currentSession = useRef(null), inFlight = useRef(false), clockOffset = useRef(0), autoSubmitted = useRef(false);
+  const receive = useCallback(value => {
+    currentSession.current = value;
+    clockOffset.current = new Date(value.serverNow).getTime() - Date.now();
+    setSession(value);
+    if (value.quiz.timerMode === "per-question") setIndex(value.currentQuestionIndex);
+  }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    assignmentApi(`assignments/${token}`, { signal: controller.signal }).then(setDetails)
+      .catch(e => { if (e.name !== "AbortError") setError(e.message); });
+    return () => controller.abort();
+  }, [token]);
+  const operation = useCallback(async (action, body) => {
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setError("");
+    try {
+      const active = currentSession.current;
+      const data = action === "start" ? await assignmentApi(`assignments/${token}/start`, { method: "POST" })
+        : action === "refresh" ? await assignmentApi(`assignment-attempts/${active.publicId}`)
+        : await assignmentApi(`assignment-attempts/${active.publicId}/${action}`, {
+          method: action === "answer" ? "PUT" : "POST", body: JSON.stringify(body || {}) });
+      if (data.result) navigate(`/assignment-attempts/${data.result.publicId}/result`, { replace: true });
+      else receive(data.session);
+    } catch (e) { setError(e.message); }
+    finally { inFlight.current = false; setBusy(false); }
+  }, [token, navigate, receive]);
+  useEffect(() => {
+    if (!session) return;
+    const interval = setInterval(() => {
+      const now = Date.now() + clockOffset.current;
+      setClock(now);
+      const active = currentSession.current;
+      const finished = active.quiz.timerMode === "per-question" && active.currentQuestionIndex >= active.quiz.questions.length;
+      if (finished || (active.expiresAt && now >= new Date(active.expiresAt).getTime()) ||
+        (active.dueAt && now >= new Date(active.dueAt).getTime() - 1500)) {
+        // Saved answers are graded by the server. No answer key or client score is sent.
+        if (!inFlight.current && !autoSubmitted.current) { autoSubmitted.current = true; operation("submit"); }
+      } else if (active.questionClosesAt && now >= new Date(active.questionClosesAt).getTime()) {
+        if (!inFlight.current) operation("refresh");
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [session, operation]);
+  if (!session) return <main className="player-shell"><section className="panel"><span className="eyebrow">CLASSROOM CHALLENGE</span><h1>{details?.assignment.title || "Assignment quiz"}</h1>{error && <p className="feedback feedback-error" role="alert">{error}</p>}{!details && !error && <p role="status">Loading assignment…</p>}{details && <><p>{details.assignment.group.name} · {details.assignment.state}</p><p>Answers save as you select them. Timers and assignment eligibility are enforced by the server. Refreshing resumes this attempt.</p><button className="btn btn-primary" disabled={busy || details.canManage || details.assignment.state !== "open"} onClick={() => operation("start")}>{busy ? "Starting…" : "Start or resume attempt"}</button>{details.canManage && <p>Teachers can view analytics; only assigned students can attempt.</p>}</>}<Link className="btn btn-secondary" to={`/a/${token}`}>Back to assignment</Link></section></main>;
+  const quiz = session.quiz, question = quiz.questions[index];
+  const selected = session.answers.find(a => a.key === String(index))?.selectedOption;
+  const deadlines = [session.expiresAt, session.dueAt, session.questionClosesAt].filter(Boolean).map(d => new Date(d).getTime());
+  const seconds = deadlines.length ? Math.max(0, Math.ceil((Math.min(...deadlines) - clock) / 1000)) : null;
+  return <main className="player-shell"><section className="player-card"><div className="page-toolbar"><div><span className="eyebrow">ASSIGNMENT · ATTEMPT {session.attemptNumber}</span><h1>{quiz.title}</h1></div>{seconds !== null && <span className="pill" aria-live="off">{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} remaining</span>}</div>
+    {error && <p className="feedback feedback-error" role="alert">{error}</p>}
+    {question ? <><p className="muted">Question {index + 1} of {quiz.questions.length} · {question.marks} marks</p><h2>{question.questionText}</h2><fieldset className="assignment-options" disabled={busy}><legend className="sr-only">Choose your answer</legend>{question.options.map((option, optionIndex) => <label className={`assignment-option ${selected === optionIndex ? "is-selected" : ""}`} key={optionIndex}><input type="radio" name={`question-${index}`} checked={selected === optionIndex} onChange={() => operation("answer", { key: String(index), selectedOption: optionIndex })} /><span>{option}</span></label>)}</fieldset>
+      <div className="assignment-actions">{quiz.timerMode !== "per-question" && <><button className="btn btn-secondary" disabled={busy || index === 0} onClick={() => setIndex(index - 1)}>Previous</button><button className="btn btn-secondary" disabled={busy || index === quiz.questions.length - 1} onClick={() => setIndex(index + 1)}>Next</button></>}{quiz.timerMode === "per-question" && index < quiz.questions.length - 1 && <button className="btn btn-secondary" disabled={busy} onClick={() => operation("advance", { key: String(index) })}>Save & next question</button>}<button className="btn btn-primary" disabled={busy} onClick={() => operation("submit")}>{busy ? "Saving…" : "Submit saved answers"}</button></div>
+      <p className="muted" role="status">{busy ? "Saving your progress…" : "Your selected answers are saved on the server."}</p></> : <><p>Question time has ended.</p><button className="btn btn-primary" disabled={busy} onClick={() => operation("submit")}>Submit saved answers</button></>}
+  </section></main>;
 }
 
 export default QuizPlayer;

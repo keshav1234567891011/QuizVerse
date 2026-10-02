@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 import Group from "../models/Group.js";
+import Assignment from "../models/Assignment.js";
 import User from "../models/User.js";
 import GroupInvitation from "../models/GroupInvitation.js";
 import { canManage, identifier, fail, lockGroup, createMembershipRequest, respondToRequest } from "../services/groupService.js";
@@ -91,6 +92,7 @@ export const deleteGroup = groupHandler(async (req, res) => {
     if (!canManage(group, req.user)) fail(403, "You cannot delete this classroom.");
     await GroupInvitation.updateMany({ group: group._id, status: "pending" }, { $set: { status: "cancelled", respondedAt: new Date() } }, { session });
     await Group.deleteOne({ _id: group._id }, { session });
+    await Assignment.updateMany({ group: group._id, status: "published" }, { $set: { status: "closed" } }, { session });
   });
   res.json({ success: true });
 });

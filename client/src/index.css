@@ -1929,3 +1929,28 @@ button:disabled { cursor:wait; opacity:.6; transform:none; }
   .page-intro h1,.dashboard-welcome h1 { font-size:2.3rem; }
 }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; } }
+/* Assignments share the classroom cards, typography, and feedback palette. */
+.assignment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 1.5rem; }
+.assignment-card h2 { margin-top: 1rem; }
+.assignment-form-shell { max-width: 980px; }
+.assignment-settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 1rem; }
+.assignment-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; margin: 1rem 0; }
+.assignment-actions input { flex: 1 1 240px; min-width: 0; padding: .85rem; border: 1px solid var(--border, #ddd); border-radius: 12px; }
+.assignment-dates { display: grid; grid-template-columns: auto 1fr; gap: .6rem 1.5rem; margin: 1.5rem 0; }
+.assignment-dates dt { font-weight: 700; }
+.assignment-dates dd { margin: 0; overflow-wrap: anywhere; }
+.analytics-table-wrap { overflow-x: auto; background: white; border-radius: 16px; margin: 1.5rem 0; }
+.analytics-table { width: 100%; border-collapse: collapse; text-align: left; }
+.analytics-table caption { text-align: left; padding: 1rem; font-weight: 700; }
+.analytics-table th, .analytics-table td { padding: 1rem; border-bottom: 1px solid #e9e7f0; vertical-align: top; }
+.analytics-table thead { background: #f5f3fc; }
+.analytics-id { display: block; font-size: .8rem; margin-top: .4rem; }
+.assignment-options { display: grid; gap: .75rem; border: 0; padding: 0; margin: 1.5rem 0; }
+.assignment-option { display: flex; align-items: center; gap: 1rem; padding: 1rem; border: 2px solid #e9e7f0; border-radius: 14px; cursor: pointer; }
+.assignment-option.is-selected { background: #f3efff; border-color: #7952d5; }
+.assignment-option input { width: 1.1rem; height: 1.1rem; accent-color: #7952d5; }
+.assignment-option:focus-within { outline: 3px solid #b6a2ed; outline-offset: 2px; }
+.status-open { color: #176741; background: #e6f6ed; }
+.status-upcoming { color: #70561a; background: #fff4cf; }
+.status-overdue, .status-closed { color: #864047; background: #fbe9eb; }
+@media (max-width: 600px) { .assignment-actions .btn { flex: 1 1 auto; } .assignment-dates { gap: .6rem; } }

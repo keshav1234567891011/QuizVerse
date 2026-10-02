@@ -2,6 +2,9 @@ import mongoose from "mongoose";
 
 import Quiz from "../models/Quiz.js";
 import Attempt from "../models/Attempt.js";
+import Assignment from "../models/Assignment.js";
+import { gradeAnswers } from "../services/scoringService.js";
+import { mutateAssignedAttempt, assignmentView, resultView } from "../services/assignmentService.js";
 
 export const startAttempt = async (req, res) => {
   try {
@@ -135,6 +138,11 @@ export const submitAttempt = async (req, res) => {
       });
     }
 
+    if (attempt.assignment) {
+      const result = await mutateAssignedAttempt(req.user, attempt.publicId, "submit");
+      return res.json({ success: true, result });
+    }
+
     const quiz = await Quiz.findById(
       attempt.quiz
     );
@@ -146,134 +154,7 @@ export const submitAttempt = async (req, res) => {
       });
     }
 
-    const validQuestionIds = new Set(
-      quiz.questions.map((question) =>
-        question._id.toString()
-      )
-    );
-
-    const answerMap = new Map();
-
-    for (const answer of answers) {
-      if (
-        !answer.questionId ||
-        !mongoose.Types.ObjectId.isValid(
-          answer.questionId
-        )
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "One or more answers contain an invalid question ID",
-        });
-      }
-
-      const questionId =
-        answer.questionId.toString();
-
-      if (!validQuestionIds.has(questionId)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "An answer references a question that does not belong to this quiz",
-        });
-      }
-
-      if (answerMap.has(questionId)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "The same question was answered more than once",
-        });
-      }
-
-      const selectedOption =
-        answer.selectedOption === null ||
-        answer.selectedOption === undefined
-          ? null
-          : Number(answer.selectedOption);
-
-      if (
-        selectedOption !== null &&
-        (!Number.isInteger(selectedOption) ||
-          selectedOption < 0)
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "One or more selected options are invalid",
-        });
-      }
-
-      answerMap.set(
-        questionId,
-        selectedOption
-      );
-    }
-
-    let score = 0;
-    let correctAnswers = 0;
-    let totalMarks = 0;
-
-    const gradedAnswers = [];
-
-    for (const question of quiz.questions) {
-      const questionId =
-        question._id.toString();
-
-      const selectedOption =
-        answerMap.has(questionId)
-          ? answerMap.get(questionId)
-          : null;
-
-      if (
-        selectedOption !== null &&
-        selectedOption >= question.options.length
-      ) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "A selected option is outside the valid range",
-        });
-      }
-
-      const questionMarks =
-        Number(question.marks) || 0;
-
-      totalMarks += questionMarks;
-
-      const isCorrect =
-        selectedOption !== null &&
-        selectedOption ===
-          question.correctOption;
-
-      const marksAwarded = isCorrect
-        ? questionMarks
-        : 0;
-
-      if (isCorrect) {
-        correctAnswers += 1;
-        score += marksAwarded;
-      }
-
-      gradedAnswers.push({
-        questionId: question._id,
-        selectedOption,
-        isCorrect,
-        marksAwarded,
-      });
-    }
-
-    const percentage =
-      totalMarks > 0
-        ? Number(
-            (
-              (score / totalMarks) *
-              100
-            ).toFixed(2)
-          )
-        : 0;
-
+    const graded = gradeAnswers(quiz.questions, answers);
     const submittedAt = new Date();
 
     const timeTakenSeconds = Math.max(
@@ -285,14 +166,7 @@ export const submitAttempt = async (req, res) => {
       )
     );
 
-    attempt.answers = gradedAnswers;
-    attempt.score = score;
-    attempt.totalMarks = totalMarks;
-    attempt.correctAnswers =
-      correctAnswers;
-    attempt.totalQuestions =
-      quiz.questions.length;
-    attempt.percentage = percentage;
+    Object.assign(attempt, graded);
     attempt.status = "submitted";
     attempt.submittedAt = submittedAt;
     attempt.timeTakenSeconds =
@@ -327,9 +201,9 @@ export const submitAttempt = async (req, res) => {
       error
     );
 
-    res.status(500).json({
+    res.status(error.status || 500).json({
       success: false,
-      message:
+      message: error.status ? error.message :
         "Something went wrong while submitting the attempt",
     });
   }
@@ -348,22 +222,18 @@ export const getMyAttempts = async (req, res) => {
         submittedAt: -1,
       });
 
-    const formattedAttempts = attempts.map((attempt) => ({
-      _id: attempt._id,
-
-      quiz: attempt.quiz,
-
-      score: attempt.score,
-      totalMarks: attempt.totalMarks,
-
-      correctAnswers: attempt.correctAnswers,
-      totalQuestions: attempt.totalQuestions,
-
-      percentage: attempt.percentage,
-
-      timeTakenSeconds: attempt.timeTakenSeconds,
-
-      submittedAt: attempt.submittedAt,
+    const formattedAttempts = await Promise.all(attempts.map(async attempt => {
+      const assigned = attempt.assignment ? await Assignment.findById(attempt.assignment) : null;
+      return {
+        _id: assigned ? attempt.publicId : attempt._id,
+        publicId: attempt.publicId,
+        assignment: assigned ? assignmentView(assigned) : null,
+        quiz: assigned ? { title: assigned.title } : attempt.quiz,
+        score: attempt.score, totalMarks: attempt.totalMarks,
+        correctAnswers: attempt.correctAnswers, totalQuestions: attempt.totalQuestions,
+        percentage: attempt.percentage, timeTakenSeconds: attempt.timeTakenSeconds,
+        submittedAt: attempt.submittedAt,
+      };
     }));
 
     res.status(200).json({
@@ -424,6 +294,12 @@ export const getAttemptResult = async (req, res) => {
         message:
           "This attempt has not been submitted yet",
       });
+    }
+
+    if (attempt.assignment) {
+      const assignment = await Assignment.findById(attempt.assignment);
+      if (!assignment) return res.status(404).json({ success: false, message: "Assignment no longer exists." });
+      return res.json({ success: true, result: { ...resultView(attempt), assignment: assignmentView(assignment), quiz: { title: assignment.title } } });
     }
 
     res.status(200).json({

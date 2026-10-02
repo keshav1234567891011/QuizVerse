@@ -1,0 +1,13 @@
+import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
+import { create, update, mine, detail, report } from "../controllers/assignmentController.js";
+import { start } from "../controllers/assignmentAttemptController.js";
+const router = express.Router();
+router.use(protect);
+router.get("/", mine);
+router.post("/", create);
+router.get("/:token/analytics", report);
+router.post("/:token/start", start);
+router.get("/:token", detail);
+router.patch("/:token", update);
+export default router;

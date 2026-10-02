@@ -91,6 +91,7 @@ function MyAttempts() {
                 </span>
 
                 <h2>{attempt.quiz?.title || "Deleted Quiz"}</h2>
+                {attempt.assignment && <p>Assignment · {attempt.assignment.group.name}</p>}
 
                 <p>{new Date(attempt.submittedAt).toLocaleString()}</p>
               </div>
@@ -104,7 +105,7 @@ function MyAttempts() {
               </div>
 
               <Link
-                to={`/attempts/${attempt._id}/result`}
+                to={attempt.assignment ? `/assignment-attempts/${attempt.publicId}/result` : `/attempts/${attempt._id}/result`}
                 className="btn btn-secondary"
               >
                 View Result

@@ -15,6 +15,10 @@ import MyAttempts from "./pages/MyAttempts.jsx";
 import AttemptResult from "./pages/AttemptResult.jsx";
 import Home from "./pages/Home.jsx";
 import Groups from "./pages/Groups.jsx";
+import Assignments from "./pages/Assignments.jsx";
+import CreateAssignment from "./pages/CreateAssignment.jsx";
+import AssignmentDetail from "./pages/AssignmentDetail.jsx";
+import AssignmentResult from "./pages/AssignmentResult.jsx";
 
 function App() {
   return (
@@ -38,6 +42,11 @@ function App() {
         />
 
         <Route path="/browse" element={<BrowseQuizzes />} />
+        <Route path="/assignments" element={<ProtectedRoute><Assignments /></ProtectedRoute>} />
+        <Route path="/assignments/create" element={<ProtectedRoute roles={["teacher", "admin"]}><CreateAssignment /></ProtectedRoute>} />
+        <Route path="/a/:token" element={<ProtectedRoute><AssignmentDetail /></ProtectedRoute>} />
+        <Route path="/a/:token/play" element={<ProtectedRoute><QuizPlayer /></ProtectedRoute>} />
+        <Route path="/assignment-attempts/:publicId/result" element={<ProtectedRoute><AssignmentResult /></ProtectedRoute>} />
 
         <Route
           path="/play/:id"
