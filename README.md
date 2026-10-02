@@ -99,6 +99,65 @@ Use teacher A, teacher B, admin, student A, student B, and an outsider in separa
 12. Inspect every assignment/session/result response: no `correctOption`, frozen answer key, or MongoDB identifiers. Inject a client score/replacement answer array into submission: the result must use only saved server-side selections.
 13. Recheck standalone public/unlisted quiz play, scoring, history/result reload, quiz CRUD, authentication/logout, invitations and join requests. Check assignments, tables, forms, and mobile navigation at desktop and 360px widths.
 
+## Branch 6 notifications and classroom messaging
+
+Authenticated users have a recipient-isolated inbox at `/notifications`, an unread navigation badge, an unread filter, cursor pagination, and individual/all-read actions. Notification UUIDs, QV IDs, classroom codes, assignment tokens, and message UUIDs are the only identifiers returned by the new APIs. Actor and sender displays are snapshots; messages render as plain text.
+
+Notification producers cover invitations, invitation responses, join requests and responses, assignment publication, due-soon reminders, announcements, membership removal, and classroom deletion. Recipients are selected by the server. Each recipient/event pair has a unique index; retries do not create another notification or reset its read state. Writes share the source operation's transaction, so notification failure rolls back the source mutation rather than reporting a misleading event. Assignment publication uses the frozen assigned-student roster.
+
+Classroom chat is `/groups/:code/chat`. Current student members, the owning teacher, and admins can read/send; other teachers and outsiders cannot. Only the owner/admin may announce. Archived classrooms remain readable but reject writes. Deleted classrooms reject chat access; historical records are retained internally without exposing deleted chat. Membership removal blocks subsequent chat requests. Changing a former student's role does not grant access as a different teacher.
+
+Messages require a client-generated UUID retry key, scoped to sender/classroom. Reusing it with identical content returns the original message; different content fails. Message history has cursor pagination and incremental polling. Announcements notify classroom students and the owner, excluding the actor. The database counts recent messages under the existing classroom transaction lock: at most 20 new messages per sender/classroom in a rolling minute, shared across server instances. Identical retries do not consume another slot. This serializes classroom writes and is suitable for modest traffic; production hardening should include request-level distributed limits, retention rules, abuse controls, and load testing.
+
+REST polling refreshes notification synchronization/count every 60 seconds and chat every 15 seconds while authenticated/visible. It prevents overlapping requests, stops polling in hidden tabs, and aborts outstanding requests when leaving the session/page. There are no new packages or realtime infrastructure. Notification list contents can be refreshed manually; the badge refreshes automatically.
+
+Due soon means a published assignment with a deadline strictly in the future and within 24 hours (inclusive). Authenticated student synchronization only considers current active-classroom members on the frozen assignment roster, excluding students who already submitted. A deadline-specific event key prevents duplicates and permits a new reminder after a deadline change. **Reminders are not guaranteed while users are offline:** there is no background scheduler. Synchronization processes eligible assignments individually and may need batching for large accounts.
+
+### Communication APIs
+
+- `GET /api/notifications?unread=true&before=:uuid&limit=30`: own inbox, newest first.
+- `GET /api/notifications/unread-count`: own unread count.
+- `PATCH /api/notifications/:publicId/read`: own notification, idempotent.
+- `PATCH /api/notifications/read-all`: mark current own notifications read.
+- `POST /api/notifications/sync`: synchronize eligible due reminders.
+- `GET /api/groups/:code/messages?before=:uuid&limit=30`: classroom history; alternatively use `after=:uuid` for incremental updates.
+- `POST /api/groups/:code/messages`: `{ message, type: normal | announcement, clientMessageId: UUID }`.
+
+No migration/backfill is required. Startup initializes Notification and GroupMessage indexes alongside existing indexes before serving traffic. Transactions still require Atlas/a replica set. Local verification does not start the database-connected API. Optional Branch 6 concurrency tests additionally require `RUN_COMMUNICATIONS_MONGO_TESTS=1` and an explicitly approved isolated `TEST_MONGO_URI`; they use a random `quizverse_branch6_test_*` database. Keep all real-database tests disabled during ordinary verification:
+
+```powershell
+$env:TEST_MONGO_URI = ''
+$env:RUN_ASSIGNMENT_MONGO_TESTS = ''
+$env:RUN_COMMUNICATIONS_MONGO_TESTS = ''
+npm test --prefix server -- '--test-name-pattern=^(?!MongoDB)'
+npm run lint --prefix client
+npm run build --prefix client -- --configLoader native
+$verificationFiles = rg --files server/src server/test server/test-support -g '*.js'
+foreach ($verificationFile in $verificationFiles) {
+  node --check $verificationFile
+  if ($LASTEXITCODE -ne 0) { throw "Syntax check failed: $verificationFile" }
+}
+git diff --check
+git --no-optional-locks status --untracked-files=all
+```
+
+### Branch 6 browser smoke tests
+
+Use two teachers, an admin, two students in different classrooms, and an outsider in your approved test environment.
+
+1. The owning teacher posts an announcement in classroom A. Its student receives exactly one unread notification; classroom B's student and the outsider receive none. Open the notification into A chat. Reload to confirm message persistence.
+2. Exchange normal messages as the teacher and student. Confirm sender name, QV ID, role, timestamp, and mobile layout. Text such as `<script>alert(1)</script>` must appear literally, without executing.
+3. As the student, manually POST an announcement; expect 403. Teacher B and the outsider must receive 403 for reading/sending A messages; the admin may read/send and announce. Signed-out requests must fail authentication.
+4. Replay a POST with its original `clientMessageId` and body: only one message/announcement notification should exist. Change its body while retaining the UUID: expect 409. Send more than 20 distinct messages in one minute: expect 429; wait a minute and retry. Load older history with more than 30 messages; inspect classroom isolation.
+5. Invite a student, then accept/decline from that student profile. Repeat with join requests accepted/declined by teacher/admin. Check correct recipients and no membership before acceptance. Publish an assignment: only its frozen roster receives the publication notice, with the correct `/a/:token` link.
+6. Publish assignments due inside 24 hours, beyond 24 hours, already overdue, and with a completed attempt. Use Notifications Refresh or wait for synchronization: only the eligible future incomplete assignment should remind. Refresh repeatedly: no duplicates. Closed, archived, and removed-member cases must not produce new reminders.
+7. Mark one notification read, use Unread only, mark all read, and paginate. Reload; read state persists. Try another account's notification UUID in mark-read/pagination: access must fail. Inspect all new API responses for internal IDs/answer keys.
+8. Archive a classroom in an approved test setup: history stays readable and posting fails. Remove a member: their chat access fails. Delete a classroom: chat fails for everyone, including admin; affected users receive activity notices. Existing saved assignment results remain usable.
+9. Hide the tab: polling stops. Return: refresh resumes. Logout and sign in as another user: the prior inbox/count/chat must disappear. Simulate an API/network failure, check errors, then recover using Refresh/Retry. Confirm retrying a message after an uncertain response does not duplicate it.
+10. Recheck Branch 4 invitations/join flows and Branch 5 assignment play, frozen grading, isolated analytics, standalone quiz play/results, quiz CRUD, and authentication. Check navigation/inbox/chat at desktop and 360px mobile width.
+
+Unit/service/HTTP tests use transaction doubles and a loopback HTTP server with database methods mocked. They verify authorization, recipient isolation, read state, retry behavior, source-event rollback, reminder boundaries, and Branch 4/5 regressions. Real MongoDB locking/index/concurrency behavior remains unverified until the opt-in isolated-database test is approved and run.
+
 ## Existing-account migration
 
 Back up the database and stop the API before running migrations. Use the intended environment's `server/.env` and an existing account email for the admin. From the repository root:

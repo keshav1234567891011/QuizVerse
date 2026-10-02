@@ -2,8 +2,11 @@ import { useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/auth.js";
 
+import { useNotifications } from "../context/notifications.js";
+
 export default function Navbar() {
   const { user, logout, loading } = useAuth();
+  const { unreadCount, error: notificationError } = useNotifications();
   const [openPath, setOpenPath] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -24,7 +27,7 @@ export default function Navbar() {
       <button ref={toggleRef} className="nav-toggle btn btn-secondary" aria-expanded={open} aria-controls="primary-navigation" onClick={()=>setOpenPath(open ? null : location.pathname)}>{open ? "Close menu" : "Open menu"}</button>
       <nav id="primary-navigation" aria-label="Main navigation" className={`navbar-links ${open ? "nav-open" : ""}`} onClick={e=>{if(e.target.closest("a"))closeMenu();}} onKeyDown={e=>{if(e.key === "Escape"){closeMenu();toggleRef.current?.focus();}}}>
         <NavLink to="/" end>Home</NavLink><NavLink to="/browse">Browse</NavLink>
-        {user ? <><NavLink to="/dashboard">Dashboard</NavLink><NavLink to="/groups">Classrooms</NavLink><NavLink to="/assignments">Assignments</NavLink>{canTeach && <NavLink to="/quizzes">{user.role === "admin" ? "Quizzes" : "My quizzes"}</NavLink>}<NavLink to="/attempts">My attempts</NavLink><span className="nav-role">{user.role}</span><button className="btn btn-secondary" disabled={busy} onClick={handleLogout}>{busy ? "Signing out..." : "Sign out"}</button></> : !loading && <><NavLink to="/login">Log in</NavLink><Link className="btn btn-primary" to="/register">Get started</Link></>}
+        {user ? <><NavLink to="/dashboard">Dashboard</NavLink><NavLink to="/groups">Classrooms</NavLink><NavLink to="/assignments">Assignments</NavLink><NavLink to="/notifications" aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}>Notifications{unreadCount > 0 && <span className="count-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>}{notificationError && <span title="Notifications could not refresh"> !</span>}</NavLink>{canTeach && <NavLink to="/quizzes">{user.role === "admin" ? "Quizzes" : "My quizzes"}</NavLink>}<NavLink to="/attempts">My attempts</NavLink><span className="nav-role">{user.role}</span><button className="btn btn-secondary" disabled={busy} onClick={handleLogout}>{busy ? "Signing out..." : "Sign out"}</button></> : !loading && <><NavLink to="/login">Log in</NavLink><Link className="btn btn-primary" to="/register">Get started</Link></>}
       </nav>
     </div>{error && <p className="nav-error" role="alert">{error}</p>}
   </header></>;

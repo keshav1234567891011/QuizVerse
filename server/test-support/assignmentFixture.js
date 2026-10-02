@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import Notification from "../src/models/Notification.js";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import Assignment from "../src/models/Assignment.js";
@@ -26,7 +27,7 @@ export function assignmentFixture(t) {
       difficulty: "easy", status: "published", visibility: "private", timerMode: "none", totalTimeLimit: null,
       questions: [{ _id: id(), questionText: "One plus one?", options: ["Two", "Three"], correctOption: 0, marks: 5, timeLimit: 5 },
         { _id: id(), questionText: "Two plus two?", options: ["Three", "Four"], correctOption: 1, marks: 5, timeLimit: 5 }] }],
-    assignments: [], attempts: [],
+    assignments: [], attempts: [], notifications: [],
   };
   const session = {};
   const values = (record, path) => {
@@ -89,5 +90,13 @@ export function assignmentFixture(t) {
   });
   t.mock.method(Attempt, "exists", filter => query(state.attempts.some(row => matches(row, filter))));
   t.mock.method(Attempt, "countDocuments", filter => query(state.attempts.filter(row => matches(row, filter)).length));
+  t.mock.method(Notification, "bulkWrite", async (operations, options) => {
+    assert.equal(options.session, session);
+    for (const { updateOne: op } of operations) {
+      if (!state.notifications.some(row => String(row.recipient) === String(op.filter.recipient) && row.eventKey === op.filter.eventKey)) {
+        state.notifications.push({ ...op.update.$setOnInsert, createdAt: new Date() });
+      }
+    }
+  });
   return { teacher, student, studentB, outsider, otherTeacher, admin, get state() { return state; } };
 }

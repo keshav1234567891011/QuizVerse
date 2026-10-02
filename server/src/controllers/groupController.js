@@ -5,6 +5,7 @@ import Assignment from "../models/Assignment.js";
 import User from "../models/User.js";
 import GroupInvitation from "../models/GroupInvitation.js";
 import { canManage, identifier, fail, lockGroup, createMembershipRequest, respondToRequest } from "../services/groupService.js";
+import { notify } from "../services/notificationService.js";
 
 export const groupHandler = fn => async (req, res) => {
   try { await fn(req, res); } catch (error) {
@@ -81,7 +82,11 @@ export const removeStudentFromGroup = groupHandler(async (req, res) => {
     if (!canManage(group, req.user)) fail(403, "You cannot manage this classroom.");
     const student = await User.findOne({ publicId }).session(session);
     if (!student) fail(404, "Student not found.");
+    const wasMember = group.students.some(id => String(id) === String(student._id));
     await Group.updateOne({ _id: group._id }, { $pull: { students: student._id } }, { session });
+    if (wasMember) await notify({ recipients: [student._id, group.teacher], actor: req.user,
+      type: "membership-removed", title: "Classroom membership updated", message: `${student.name || "A student"} was removed from ${group.name}.`,
+      related: { groupCode: code, groupName: group.name }, eventKey: `membership:${code}:${student._id}:${group.membershipRevision}:removed`, session });
   });
   res.json({ success: true });
 });
@@ -93,6 +98,9 @@ export const deleteGroup = groupHandler(async (req, res) => {
     await GroupInvitation.updateMany({ group: group._id, status: "pending" }, { $set: { status: "cancelled", respondedAt: new Date() } }, { session });
     await Group.deleteOne({ _id: group._id }, { session });
     await Assignment.updateMany({ group: group._id, status: "published" }, { $set: { status: "closed" } }, { session });
+    await notify({ recipients: [...group.students, group.teacher], actor: req.user, type: "classroom-deleted",
+      title: "Classroom deleted", message: `${group.name} was deleted. Its chat is no longer available.`,
+      related: { groupCode: code, groupName: group.name }, eventKey: `classroom:${group._id}:deleted`, session });
   });
   res.json({ success: true });
 });

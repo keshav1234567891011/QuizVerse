@@ -1,0 +1,11 @@
+import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
+import { list, count, read, readAll, sync } from "../controllers/notificationController.js";
+const router = express.Router();
+router.use(protect);
+router.get("/", list);
+router.get("/unread-count", count);
+router.patch("/read-all", readAll);
+router.patch("/:publicId/read", read);
+router.post("/sync", sync);
+export default router;

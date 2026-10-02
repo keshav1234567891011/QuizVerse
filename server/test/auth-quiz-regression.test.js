@@ -37,7 +37,7 @@ const response = () => ({ code: 200, status(code) { this.code = code; return thi
 
 test("health and all authenticated API families reject anonymous access", async () => {
   assert.equal((await request("/health")).status, 200);
-  for (const path of ["/auth/me", "/quizzes/mine", "/attempts/mine", "/groups", "/groups/requests", "/assignments", "/assignment-attempts/not-a-token"]) {
+  for (const path of ["/auth/me", "/quizzes/mine", "/attempts/mine", "/groups", "/groups/requests", "/notifications", "/groups/GRP-1234ABCD/messages", "/assignments", "/assignment-attempts/not-a-token"]) {
     assert.equal((await request(path)).status, 401, path);
   }
 });

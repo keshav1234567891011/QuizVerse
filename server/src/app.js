@@ -10,6 +10,7 @@ import attemptRoutes from "./routes/attemptRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
 import assignmentRoutes from "./routes/assignmentRoutes.js";
 import assignmentAttemptRoutes from "./routes/assignmentAttemptRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 const app = express();
 
@@ -48,5 +49,6 @@ app.use("/api/attempts", attemptRoutes);
 app.use("/api/groups", groupRoutes);
 app.use("/api/assignments", assignmentRoutes);
 app.use("/api/assignment-attempts", assignmentAttemptRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 export default app;

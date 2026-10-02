@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import Notification from "../src/models/Notification.js";
 import assert from "node:assert/strict";
 import mongoose from "mongoose";
 import Group from "../src/models/Group.js";
@@ -17,7 +18,7 @@ export function classroomFixture(t) {
   let state = {
     group: { _id: "group", teacher: teacher._id, groupCode: "GRP-1234ABCD", students: [], status: "active", membershipRevision: 0 },
     users: [teacher, student, otherStudent, otherTeacher, admin],
-    requests: [],
+    requests: [], notifications: [],
   };
   const session = {};
   let queue = Promise.resolve();
@@ -74,6 +75,14 @@ export function classroomFixture(t) {
   });
   t.mock.method(Assignment, "updateMany", async (_filter, _update, options) => {
     assert.equal(options.session, session);
+  });
+  t.mock.method(Notification, "bulkWrite", async (operations, options) => {
+    assert.equal(options.session, session);
+    for (const { updateOne: op } of operations) {
+      if (!state.notifications.some(row => String(row.recipient) === String(op.filter.recipient) && row.eventKey === op.filter.eventKey)) {
+        state.notifications.push({ ...op.update.$setOnInsert, createdAt: new Date() });
+      }
+    }
   });
   return { teacher, student, otherStudent, otherTeacher, admin, get state() { return state; } };
 }

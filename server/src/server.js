@@ -6,6 +6,8 @@ import Group from "./models/Group.js";
 import GroupInvitation from "./models/GroupInvitation.js";
 import Assignment from "./models/Assignment.js";
 import Attempt from "./models/Attempt.js";
+import Notification from "./models/Notification.js";
+import GroupMessage from "./models/GroupMessage.js";
 
 const PORT = process.env.PORT || 5000;
 
@@ -15,6 +17,8 @@ await Group.init();
 await GroupInvitation.init();
 await Assignment.init();
 await Attempt.init();
+await Notification.init();
+await GroupMessage.init();
 
 app.listen(PORT, () => {
   console.log(`QuizVerse server running on port ${PORT}`);

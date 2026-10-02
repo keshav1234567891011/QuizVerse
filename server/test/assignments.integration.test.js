@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 import mongoose from "mongoose";
+import Notification from "../src/models/Notification.js";
 import User from "../src/models/User.js";
 import Quiz from "../src/models/Quiz.js";
 import Group from "../src/models/Group.js";
@@ -22,7 +23,7 @@ test("MongoDB assignment transactions isolate classrooms and serialize concurren
     } finally { await mongoose.disconnect(); }
   });
   await mongoose.connect(process.env.TEST_MONGO_URI, { dbName: database, serverSelectionTimeoutMS: 10000 });
-  await Promise.all([User.init(), Quiz.init(), Group.init(), Assignment.init(), Attempt.init()]);
+  await Promise.all([Notification.init(), User.init(), Quiz.init(), Group.init(), Assignment.init(), Attempt.init()]);
   const [teacher, student] = await User.create([
     { name: "Teacher", email: "teacher@example.test", password: "test-only-placeholder", role: "teacher" },
     { name: "Student", email: "student@example.test", password: "test-only-placeholder", role: "student" },

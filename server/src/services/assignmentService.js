@@ -6,6 +6,7 @@ import Quiz from "../models/Quiz.js";
 import User from "../models/User.js";
 import { fail, identifier, canManage, lockGroup } from "./groupService.js";
 import { gradeAnswers } from "./scoringService.js";
+import { notify } from "./notificationService.js";
 
 const same = (a, b) => String(a?._id || a) === String(b?._id || b);
 export function token(value) {
@@ -115,6 +116,9 @@ export async function updateAssignment(user, value, body = {}) {
       a.title = quiz.title;
       a.status = "published";
       a.publishedAt = new Date();
+      await notify({ recipients: a.assignedStudents.map(student => student.user), actor: user,
+        type: "assignment-published", title: "New classroom assignment", message: `${a.title} was published in ${group.name}.`,
+        related: { groupCode: group.groupCode, groupName: group.name, assignmentToken: a.shareToken }, eventKey: `assignment:${a.shareToken}:published`, session });
     } else if (action === "close") {
       if (!a.publishedAt) fail(409, "Publish the assignment before closing it.");
       a.status = "closed";
