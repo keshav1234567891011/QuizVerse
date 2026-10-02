@@ -8,6 +8,8 @@ import authRoutes from "./routes/authRoutes.js";
 import quizRoutes from "./routes/quizRoutes.js";
 import attemptRoutes from "./routes/attemptRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
+import assignmentRoutes from "./routes/assignmentRoutes.js";
+import assignmentAttemptRoutes from "./routes/assignmentAttemptRoutes.js";
 
 const app = express();
 
@@ -44,5 +46,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/quizzes", quizRoutes);
 app.use("/api/attempts", attemptRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/assignment-attempts", assignmentAttemptRoutes);
 
 export default app;

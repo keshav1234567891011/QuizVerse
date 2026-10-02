@@ -1,0 +1,10 @@
+import express from "express";
+import { protect } from "../middleware/authMiddleware.js";
+import { get, mutate } from "../controllers/assignmentAttemptController.js";
+const router = express.Router();
+router.use(protect);
+router.get("/:publicId", get);
+router.put("/:publicId/answer", mutate("answer"));
+router.post("/:publicId/advance", mutate("advance"));
+router.post("/:publicId/submit", mutate("submit"));
+export default router;

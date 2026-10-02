@@ -3,8 +3,8 @@ import { Link, useParams } from "react-router-dom";
 
 import { API_URL } from "../config/api.js";
 
-function AttemptResult() {
-  const { attemptId } = useParams();
+function AttemptResult({ assignmentMode = false }) {
+  const { attemptId, publicId } = useParams();
 
   const [result, setResult] = useState(null);
 
@@ -15,7 +15,7 @@ function AttemptResult() {
   useEffect(() => {
     const loadResult = async () => {
       try {
-        const response = await fetch(`${API_URL}/api/attempts/${attemptId}`, {
+        const response = await fetch(`${API_URL}/api/${assignmentMode ? `assignment-attempts/${publicId}` : `attempts/${attemptId}`}`, {
           credentials: "include",
         });
 
@@ -38,7 +38,7 @@ function AttemptResult() {
     };
 
     loadResult();
-  }, [attemptId]);
+  }, [attemptId, publicId, assignmentMode]);
 
   const formatTime = (seconds) => {
     const total = Number(seconds) || 0;
@@ -93,6 +93,7 @@ function AttemptResult() {
         </div>
 
         <h1>{result.quiz?.title || "Quiz Result"}</h1>
+        {result.assignment && <p>{result.assignment.group.name} · Assignment attempt {result.attemptNumber}</p>}
 
         <p className="result-message">
           Your score is permanently saved to your QuizVerse account.
@@ -123,6 +124,7 @@ function AttemptResult() {
         </div>
 
         <div className="result-actions">
+          {result.assignment && <Link className="btn btn-primary btn-large" to={`/a/${result.assignment.token}`}>Back to assignment</Link>}
           {result.quiz?._id && (
             <Link
               to={`/play/${result.quiz._id}`}

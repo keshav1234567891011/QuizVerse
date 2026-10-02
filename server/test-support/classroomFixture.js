@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Group from "../src/models/Group.js";
 import User from "../src/models/User.js";
 import GroupInvitation from "../src/models/GroupInvitation.js";
+import Assignment from "../src/models/Assignment.js";
 
 // Service tests use a transactional store double. Actual MongoDB concurrency is
 // covered separately by the opt-in integration test; this double cannot prove it.
@@ -70,6 +71,9 @@ export function classroomFixture(t) {
   t.mock.method(GroupInvitation, "updateMany", async (filter, update, options) => {
     assert.equal(options.session, session);
     for (const row of state.requests.filter(row => matches(row, filter))) Object.assign(row, update.$set);
+  });
+  t.mock.method(Assignment, "updateMany", async (_filter, _update, options) => {
+    assert.equal(options.session, session);
   });
   return { teacher, student, otherStudent, otherTeacher, admin, get state() { return state; } };
 }

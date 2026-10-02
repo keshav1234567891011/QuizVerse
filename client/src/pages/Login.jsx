@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/auth.js";
 import { API_URL } from "../config/api.js";
 
 function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const requested = location.state?.from;
+  const destination = typeof requested === "string" && /^\/(?!\/)/.test(requested) && !requested.includes("\\") && [...requested].every(character => character.charCodeAt(0) >= 32) ? requested : "/dashboard";
   const { user, checkAuth } = useAuth();
   useEffect(() => {
     if (user) {
-      navigate("/dashboard", {
+      navigate(destination, {
         replace: true,
       });
     }
-  }, [user, navigate]);
+  }, [user, navigate, destination]);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -54,7 +57,7 @@ function Login() {
       }
 
       await checkAuth();
-      navigate("/dashboard");
+      navigate(destination);
     } catch (error) {
       console.error(error);
       setMessage("Could not connect to the server.");
