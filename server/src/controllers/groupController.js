@@ -1,3 +1,4 @@
+import { logError } from "../utils/logger.js";
 import crypto from "node:crypto";
 import mongoose from "mongoose";
 import Group from "../models/Group.js";
@@ -10,7 +11,7 @@ import { notify } from "../services/notificationService.js";
 export const groupHandler = fn => async (req, res) => {
   try { await fn(req, res); } catch (error) {
     const status = error.status || (error.code === 11000 ? 409 : error.name === "ValidationError" ? 400 : 500);
-    if (status === 500) console.error("Classroom operation failed:", error.message);
+    if (status === 500) logError("Classroom operation failed:", error);
     res.status(status).json({ success: false, message: error.status ? error.message :
       status === 409 ? "A matching pending request or code already exists. Refresh and try again." :
       status === 400 ? "Check the classroom details and try again." : "Could not complete the classroom operation. Please try again." });

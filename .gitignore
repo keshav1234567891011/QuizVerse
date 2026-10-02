@@ -15,3 +15,5 @@ dist/
 !.env.example
 !**/.env.example
 .audit-tools/
+.vercel/
+**/.vercel/

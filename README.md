@@ -4,14 +4,14 @@ React/Vite frontend and Express/Mongoose API, using MongoDB Atlas and JWT authen
 
 ## Local development
 
-Use Node.js 24 (the runtime used for Branch 4 verification). Install dependencies separately in the root, `client`, and `server` when setting up a fresh checkout. Copy `client/.env.example` and `server/.env.example` to `.env` in their respective directories, then populate the server's `MONGO_URI` and a strong `JWT_SECRET` locally. Never commit populated environment files.
+Use Node.js 24 (the runtime used for Branch 4 verification). Install dependencies separately in the root, `client`, and `server` when setting up a fresh checkout. Copy `client/.env.example` and `server/.env.example` to `.env` in their respective directories, then populate the server's `MONGO_URI` and a strong `JWT_SECRET` and `ADMIN_REFERENCE_SECRET` locally. Never commit populated environment files.
 
 - `CLIENT_URL`: exact frontend origin, usually `http://localhost:5173`.
 - `VITE_API_URL`: backend origin, usually `http://localhost:5000`; embedded at frontend build time.
 - `PORT`: API port, default `5000`.
 - `NODE_ENV`: use `production` for secure authentication cookies when hosting over HTTPS.
 
-Run `npm run dev` at the root. Production API startup is `npm start --prefix server`. This repository does not yet include a production hosting configuration; a frontend host must route SPA paths back to `index.html`. Independently hosted domains require cookie/CORS testing.
+Run `npm run dev` at the root. Production API startup is `npm start --prefix server`. The frontend has a SPA fallback excluding `/api`; production still requires a separately configured external `/api` proxy once the backend URL is known. See Branch 9 below.
 
 ## Branch 4 classroom behavior
 
@@ -60,7 +60,7 @@ Frontend pages are `/assignments`, `/assignments/create`, `/a/:token`, `/a/:toke
 
 ### Compatibility and database rollout
 
-No data migration or existing-attempt backfill is required. Legacy attempts have no assignment and continue using the existing standalone routes. Assignment attempts receive a public UUID and reference an immutable published snapshot. New schema fields are additive. Startup initializes Assignment and Attempt indexes before listening; allow the normal server startup to finish index creation during an approved deployment. No migration or database startup is performed by local verification.
+No data migration or existing-attempt backfill is required. Legacy attempts have no assignment and continue using the existing standalone routes. Assignment attempts receive a public UUID and reference an immutable published snapshot. New schema fields are additive. Local startup initializes declared indexes; production requires the separately approved index preparation step before traffic and does not create indexes during requests. No migration or database startup is performed by local verification.
 
 ### Branch 5 local verification
 
@@ -272,7 +272,7 @@ Every `/api/admin` route applies `protect` and `authorizeRoles("admin")`; mutati
 
 Attempt filters additionally accept status, kind (standalone/assignment), studentPublicId, assignmentToken, from and to. Date bounds are inclusive on startedAt; date-only values mean UTC midnight. Assignment availability filters use server time and the existing exclusive due-time boundary. Broad relationship searches consider at most 100 matching people; the API/UI explicitly reports truncation and asks for a narrower search/QV ID.
 
-Users retain QV IDs, classrooms retain group codes and assignments retain share tokens. Newly created quizzes and attempts get stable UUIDs. Existing records are not backfilled or modified on reads/validation: admin-only legacy quiz/attempt references use `legacy-<existing internal ID>` where no public UUID exists. That necessary fallback is the only internal-ID-derived reference in new admin responses. It is not a public share URL and provides no authorization. Existing standalone quiz/result URLs remain compatible. No custom cryptography or new packages were added. Quiz UUIDs have a sparse unique index declaration; no database index/migration command has been run by this branch implementation.
+Users retain QV IDs, classrooms retain group codes and assignments retain share tokens. Newly created quizzes and attempts get stable UUIDs. Existing records are not backfilled or modified on reads/validation: admin-only legacy quiz/attempt references originally used an internal-ID-derived fallback. Branch 9 replaces it with authenticated encrypted references without a backfill. It is not a public share URL and provides no authorization. Existing standalone quiz/result URLs remain compatible. No custom cryptography or new packages were added. Quiz UUIDs have a sparse unique index declaration; no database index/migration command has been run by this branch implementation.
 
 ### Account and moderation rules
 
@@ -320,3 +320,60 @@ Counts are a refresh-time overview, not an atomic cross-collection snapshot. Sus
 10. Open Attempts: inspect submitted standalone/assignment results and an in-progress attempt. Completed review shows only student's submitted answers and marks; in-progress has no review. Old results without review retain their summary. Test legacy admin references and new UUID records.
 11. As student and teacher, visit all six `/admin` pages: route guards redirect out. Manually request every admin GET/PATCH endpoint: expect 403 even with valid resource identifiers. Anonymous requests must receive 401.
 12. Test at 360px width, keyboard-only dialog confirmation/cancel/Escape, pagination, empty search, simulated API failure/retry and logout while loading. Recheck advanced quiz creation/play, assignment resume/scoring, groups/invitations/join requests, notifications, messaging and public browsing.
+
+
+## Branch 9: production hardening
+
+Node 24.x is pinned in all package engines and root .nvmrc; lockfile root metadata agrees. Dependencies are unchanged. For a fresh checkout, dependency installation is a user setup step in root/client/server. Branch 9 verification does not install packages.
+
+### Configuration and local development
+
+Copy the tracked environment examples manually to ignored local environment files. Populate secrets privately. Required server variable names: MONGO_URI, JWT_SECRET, ADMIN_REFERENCE_SECRET, CLIENT_URL, NODE_ENV; PORT controls local/runtime listening. JWT_SECRET must contain at least 32 UTF-8 bytes of strong random material. ADMIN_REFERENCE_SECRET is an independent random 32-byte key encoded as exactly 64 hexadecimal characters. Do not reuse passwords or the JWT signing secret. Examples intentionally contain no secret values.
+
+VITE_API_URL is public build configuration, never a secret. Empty or /api selects same-origin production API calls; clients already append /api to the base. Development defaults to the local API. Explicit API origins must contain no credentials or path. Production builds reject insecure HTTP and localhost origins. For a local production-build check when a developer's .env contains localhost, override VITE_API_URL with /api for that command. The production build then requires an /api proxy to work in a browser; vite preview alone does not supply it.
+
+Use npm run dev after configuring an explicitly approved development database. Missing/invalid startup settings log only an operational failure category and serve safe 503 responses. Correct the configuration and restart. No normal database has been contacted by Branch 9 verification.
+
+### Production projects (deployment remains separately approved)
+
+Frontend: root client, Vite preset, npm ci install, npm run build, output dist, Node 24.x, VITE_API_URL empty or /api.
+
+API: root server, Express zero-configuration recognition of src/server.js, npm ci install, Node 24.x, no static output directory or frontend build. Keep app.js reusable and server.js as the listening entrypoint. No backend vercel.json or legacy serverless adapter is added.
+
+Backend environment names: MONGO_URI and JWT_SECRET and ADMIN_REFERENCE_SECRET (secrets); NODE_ENV and CLIENT_URL (configuration). PORT is generally needed only locally or where runtime listening requires it. Production CLIENT_URL is the exact HTTPS frontend origin with no trailing slash or path; comma-separated explicit origins are supported. Do not allow arbitrary preview domains or wildcard origins. Localhost origins are development-only. Backend settings must not expose environment values in logs.
+
+Browser architecture: frontend origin -> /api/* -> external Vercel rewrite -> backend project. Once the actual backend URL exists, separately configure an /api/:path* external rewrite to its /api/:path* route BEFORE the SPA fallback. No unknown hostname is embedded now. The committed SPA fallback excludes /api and preserves static filesystem handling; without the proxy API calls fail rather than receiving index.html. Verify the rewrite syntax, static assets, Origin preservation, cookie forwarding/set-cookie clearing, and direct backend behavior during separately approved deployment. Preview environments require explicitly configured trusted origins.
+
+Cookies remain host-only, httpOnly, Secure in production, SameSite=Lax, path /, seven-day expiry. Set/clear options are shared. Do not add a Domain attribute or weaken SameSite to work around unrelated domains. All unsafe production browser requests, including login/register/logout, require an exact allowed Origin; JSON bodies require application/json. GET/HEAD and OPTIONS remain usable. Non-browser mutation clients must also supply an allowed Origin; the API is designed for the browser client. CORS does not grant authorization and is not the CSRF mechanism.
+
+### Database readiness and indexes
+
+Atlas must support transactions/replica-set behavior used by classroom, assignment, and messaging operations. Use least-privilege runtime credentials for the intended database, restricted network access compatible with deployment, and backups/restore procedures. Do not casually enable unrestricted network access. Index-management credentials/approval may be separate from runtime credentials.
+
+Connections share one promise per process, with retries after failure and reconnect after disconnect. Pool maximum is five, minimum zero; selection/connect timeout ten seconds, socket timeout thirty seconds. Multiple Vercel instances still have separate pools: budget total Atlas connections and load-test separately. Production disables autoIndex/autoCreate and request buffering; readiness failures return safe 503 instead of process.exit. Local startup prepares declared indexes as before.
+
+Before production traffic, separately approve and run npm run indexes:prepare --prefix server in the intended environment. THIS COMMAND WAS NOT RUN during implementation. It adds declared indexes and checks key/options using createIndexes/listIndexes. It never syncs/drops indexes or backfills historical records. Duplicate historical data or index-option conflicts cause failure and must be reviewed, not automatically repaired.
+
+Required declarations cover user email/QV identity, group codes, pending membership uniqueness, assignment tokens/rosters, Quiz/Attempt UUIDs, assignment attempt numbering, notification recipient/event deduplication and inbox access, message UUID/retries/history/counting, and rate-limit bucket uniqueness/TTL. A permissions/index verification against actual Atlas remains a deployment gate. Retention of attempts/notifications/messages is unchanged; TTL only removes rate-limit buckets.
+
+### Abuse protection, errors, and references
+
+Production login uses a shared 15-minute fixed window: 10 requests per normalized account identity and a coarse 300 per connection peer. Registration uses 30 requests per peer per 15 minutes. Atomic MongoDB increments and unique keys handle competing workers; duplicate initial upserts increment the winner. Identities are HMAC hashes; raw email/IP values are not stored. Exceeded limits return 429 and Retry-After; database/limiter errors fail closed with safe 503. Development limiting is disabled. Existing classroom transactional message limiting stays unchanged.
+
+Forwarded client-IP headers are deliberately not trusted. Under a proxy, peers may be shared: the coarse limit can affect multiple legitimate users and per-account limits can be abused to temporarily block a targeted login. Verify trusted platform client-IP provenance and tune limits before broad public traffic. No Redis/service or in-memory security counter is introduced. Fixed windows permit a burst near the boundary; TTL cleanup is asynchronous. Neither the limiter nor polling provides a background scheduler.
+
+JSON unknown routes, malformed JSON, unsupported encoding, oversized bodies (100 KiB), and unhandled failures receive safe responses. Request logs contain method/status/duration only, not URLs or query tokens. Operational error logs allow only fixed event labels, recognized error classes, and numeric codes: no bodies, stacks, raw messages, headers, passwords, JWTs, connection strings, or grading snapshots. Authentication verifies HS256 explicitly and distinguishes unavailable storage from invalid credentials.
+
+Admin responses use stable existing Quiz/Attempt UUIDs. Legacy references use v1 resource-bound AES-256-GCM with a fresh random IV, authenticated type/version, and the independent configured key. No raw internal ID is emitted and no legacy record is changed. Tampered/wrong-type/raw legacy references are rejected. References are identifiers, never permissions. Rotating ADMIN_REFERENCE_SECRET invalidates encrypted legacy links; reopen through the admin list. UUID links are unaffected. Old internal-ID-derived admin bookmarks must be reopened. Historical standalone route identifiers remain unchanged in this focused branch.
+
+New registrations cap password length at 72 UTF-8 bytes to avoid bcrypt truncation; existing longer passwords remain login-compatible within the bounded input limit. Suspension/admin protection, server grading, six-type key filtering, restricted source checks, frozen snapshots, deadlines and assignment quotas remain covered by regression tests.
+
+### Verification and future deployment sequence
+
+Keep TEST_MONGO_URI unset and both RUN_ASSIGNMENT_MONGO_TESTS and RUN_COMMUNICATIONS_MONGO_TESTS unset. Run server tests, client lint, a same-origin production build, backend syntax checks, git diff --check, and git status. Tests use mocks/local HTTP and do not prove real database concurrency, indexes, or Vercel behavior. No real MongoDB integration tests were enabled.
+
+Future, separately approved sequence: finish/manual-test Branch 9; commit/push; merge verified main; verify final main; create/configure projects and Atlas; privately configure production secrets/origins; prepare/verify indexes before traffic; deploy backend; configure actual external /api proxy; deploy frontend; connect domains/redeploy as needed; smoke-test and confirm final live URLs. Do not send normal production traffic before readiness/index/cookie checks pass.
+
+Production smoke checklist: direct refresh of login/register/dashboard/quizzes/groups/assignments/a-token/notifications/admin; static assets; register/login/logout across reload; suspended existing sessions and logout; student/teacher/admin denials; public mixed-type quizzes and persisted results; source edits/restriction with frozen attempts/assignments; assignment opening/due/quota/isolated analytics; classroom invitations/join/chat/announcements; hidden-tab polling/logout cleanup; share links/clipboard over HTTPS; local timezone date entry; safe 404/400/413/503; origin rejection and rate-limit recovery. Confirm browser network responses contain no grading keys or sensitive auth data, and deployment logs contain no credentials.
+
+Remaining hardening follow-ups: shared-proxy IP attribution and load tests, bounded legacy listing endpoints and scoped analytics performance, retention policy, guaranteed offline reminder scheduler, and separately approved real-MongoDB tests. No standalone timer redesign, broad pagination/UI rewrite, new services, or deployment actions are included.

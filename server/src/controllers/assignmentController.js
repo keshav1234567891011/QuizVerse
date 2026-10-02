@@ -1,3 +1,4 @@
+import { logError } from "../utils/logger.js";
 import Assignment from "../models/Assignment.js";
 import Attempt from "../models/Attempt.js";
 import Group from "../models/Group.js";
@@ -8,7 +9,7 @@ export const handler = fn => async (req, res) => {
   try { await fn(req, res); }
   catch (error) {
     const status = error.status || (error.code === 11000 ? 409 : error.name === "ValidationError" ? 400 : 500);
-    if (status === 500) console.error("Assignment request failed:", error.message);
+    if (status === 500) logError("Assignment request failed:", error);
     res.status(status).json({ success: false, message: error.status ? error.message :
       status === 409 ? "A competing request was saved. Refresh and try again." :
       status === 400 ? "Please check the assignment settings." : "Could not complete the assignment request." });

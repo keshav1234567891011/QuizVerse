@@ -1,6 +1,8 @@
+import { logError } from "../utils/logger.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { cookieOptions, loginCookieOptions } from "../config/cookies.js";
 
 // A consistent public profile keeps database IDs and schema internals out of identity responses.
 const publicProfile = user => ({
@@ -14,7 +16,7 @@ export const registerUser = async (req, res) => {
   try {
     const { name, email, password, role = "student" } = req.body || {};
 
-    if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string" || !name.trim() || !email.trim() || !password) {
+    if (typeof name !== "string" || typeof email !== "string" || typeof password !== "string" || !name.trim() || name.length > 50 || email.length > 254 || !email.trim() || !password) {
       return res.status(400).json({
         success: false,
         message: "Name, email and password are required",
@@ -30,10 +32,10 @@ export const registerUser = async (req, res) => {
       });
     }
 
-    if (password.length < 6) {
+    if (password.length < 6 || Buffer.byteLength(password, "utf8") > 72) {
       return res.status(400).json({
         success: false,
-        message: "Password must be at least 6 characters",
+        message: "Password must be at least 6 characters and at most 72 UTF-8 bytes",
       });
     }
 
@@ -65,7 +67,7 @@ export const registerUser = async (req, res) => {
       user: publicProfile(user),
     });
   } catch (error) {
-    console.error("Register error:", error);
+    logError("Register error:", error);
 
     res.status(500).json({
       success: false,
@@ -78,7 +80,7 @@ export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body || {};
 
-    if (typeof email !== "string" || typeof password !== "string" || !email.trim() || !password) {
+    if (typeof email !== "string" || email.length > 254 || typeof password !== "string" || !email.trim() || !password || password.length > 2000) {
       return res.status(400).json({
         success: false,
         message: "Email and password are required",
@@ -119,16 +121,11 @@ export const loginUser = async (req, res) => {
       },
       process.env.JWT_SECRET,
       {
-        expiresIn: "7d",
+        expiresIn: "7d", algorithm: "HS256",
       }
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, loginCookieOptions());
 
     res.status(200).json({
       success: true,
@@ -136,7 +133,7 @@ export const loginUser = async (req, res) => {
       user: publicProfile(user),
     });
   } catch (error) {
-    console.error("Login error:", error);
+    logError("Login error:", error);
 
     res.status(500).json({
       success: false,
@@ -152,7 +149,7 @@ export const getCurrentUser = async (req, res) => {
       user: publicProfile(req.user),
     });
   } catch (error) {
-    console.error("Get current user error:", error);
+    logError("Get current user error:", error);
 
     res.status(500).json({
       success: false,
@@ -162,11 +159,7 @@ export const getCurrentUser = async (req, res) => {
 };
 
 export const logoutUser = async (req, res) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-  });
+  res.clearCookie("token", cookieOptions());
 
   res.status(200).json({
     success: true,

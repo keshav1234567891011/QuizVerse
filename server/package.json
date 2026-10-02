@@ -8,7 +8,8 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "migrate:roles": "node src/scripts/migrateRoles.js",
-    "backfill:public-ids": "node src/scripts/backfillPublicIds.js"
+    "backfill:public-ids": "node src/scripts/backfillPublicIds.js",
+    "indexes:prepare": "node src/scripts/prepareIndexes.js"
   },
   "keywords": [],
   "author": "",
@@ -24,5 +25,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.10.1",
     "morgan": "^1.12.1"
+  },
+  "engines": {
+    "node": "24.x"
   }
 }
