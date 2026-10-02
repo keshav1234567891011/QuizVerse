@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import QuestionReview from "../components/QuestionReview.jsx";
 import { API_URL } from "../config/api.js";
 
 function AttemptResult({ assignmentMode = false }) {
@@ -123,6 +124,7 @@ function AttemptResult({ assignmentMode = false }) {
           </div>
         </div>
 
+        <QuestionReview review={result.review} />
         <div className="result-actions">
           {result.assignment && <Link className="btn btn-primary btn-large" to={`/a/${result.assignment.token}`}>Back to assignment</Link>}
           {result.quiz?._id && (

@@ -1968,3 +1968,14 @@ button:disabled { cursor:wait; opacity:.6; transform:none; }
 .chat-composer textarea { width: 100%; resize: vertical; padding: 1rem; border-radius: 12px; border: 1px solid var(--line, #ddd); font: inherit; }
 @media(max-width:1150px) { .navbar-container { flex-wrap:wrap; } .navbar-links { flex-wrap:wrap; } }
 @media(max-width:600px) { .chat-message .section-row { align-items:flex-start; flex-direction:column; gap:.5rem; } }
+
+/* Advanced question controls reuse the classroom and builder palette. */
+.typed-answer, .accepted-editor { display: grid; gap: .8rem; border: 0; padding: 0; margin: 1rem 0; }
+.typed-answer label { display: grid; gap: .5rem; }
+.typed-answer .assignment-option { display: flex; align-items: center; }
+.typed-answer input[type="text"], .typed-answer textarea, .question-card textarea { width: 100%; padding: .85rem; border: 1px solid #dcd7e9; border-radius: 10px; font: inherit; }
+.blank-editor { margin: 1rem 0; padding: 1rem; border: 1px solid #e9e7f0; border-radius: 12px; }
+.result-review { text-align: left; margin-top: 2rem; }
+.result-review .panel { overflow-wrap: anywhere; }
+.submitted-answer { white-space: pre-wrap; }
+@media (max-width: 600px) { .question-card-header { flex-wrap: wrap; gap: .8rem; } .option-row { flex-wrap: wrap; } .option-row input[type="text"] { min-width: 0; } }

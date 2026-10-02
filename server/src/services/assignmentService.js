@@ -6,6 +6,8 @@ import Quiz from "../models/Quiz.js";
 import User from "../models/User.js";
 import { fail, identifier, canManage, lockGroup } from "./groupService.js";
 import { gradeAnswers } from "./scoringService.js";
+import { playableQuestion, quizSnapshot, normalizeAnswer } from "./questionService.js";
+import { reviewQuestions, safeReview } from "./resultService.js";
 import { notify } from "./notificationService.js";
 
 const same = (a, b) => String(a?._id || a) === String(b?._id || b);
@@ -38,8 +40,7 @@ export function assignmentView(a, now = new Date()) {
 export function playableQuiz(snapshot) {
   return { title: snapshot.title, description: snapshot.description, category: snapshot.category,
     difficulty: snapshot.difficulty, timerMode: snapshot.timerMode, totalTimeLimit: snapshot.totalTimeLimit,
-    questions: snapshot.questions.map((q, index) => ({ key: String(index), questionText: q.questionText,
-      options: [...q.options], marks: q.marks, timeLimit: q.timeLimit })) };
+    questions: snapshot.questions.map((q, index) => ({ key: String(index), ...playableQuestion(q) })) };
 }
 function settings(body, current = {}) {
   const readDate = (name) => {
@@ -103,16 +104,11 @@ export async function updateAssignment(user, value, body = {}) {
       const quiz = await Quiz.findById(a.quiz).session(session);
       if (!quiz || quiz.status !== "published" || !quiz.questions.length) fail(409, "Publish a quiz with questions first.");
       if (user.role !== "admin" && !same(quiz.creator, user._id)) fail(403, "You no longer own this quiz.");
-      const valid = quiz.questions.every(q => q.options.length >= 2 && Number.isInteger(q.correctOption) &&
-        q.correctOption >= 0 && q.correctOption < q.options.length && q.marks > 0 && q.timeLimit >= 5);
-      if (!valid || (quiz.timerMode === "whole-quiz" && !(quiz.totalTimeLimit > 0))) fail(400, "Quiz questions or timer settings are invalid.");
+      const frozen = quizSnapshot(quiz);
       const students = await User.find({ _id: { $in: group.students }, role: "student" }).session(session);
       if (students.some(s => !s.publicId)) fail(409, "Every assigned student needs a QuizVerse ID.");
       a.assignedStudents = students.map(s => ({ user: s._id, name: s.name, publicId: s.publicId }));
-      a.quizSnapshot = { title: quiz.title, description: quiz.description, category: quiz.category, difficulty: quiz.difficulty,
-        timerMode: quiz.timerMode, totalTimeLimit: quiz.totalTimeLimit,
-        questions: quiz.questions.map(q => ({ _id: q._id, questionText: q.questionText, options: [...q.options],
-          correctOption: q.correctOption, marks: q.marks, timeLimit: q.timeLimit })) };
+      a.quizSnapshot = frozen;
       a.title = quiz.title;
       a.status = "published";
       a.publishedAt = new Date();
@@ -150,7 +146,7 @@ export function resultView(attempt) {
   return { publicId: attempt.publicId, attemptNumber: attempt.attemptNumber, status: attempt.status,
     score: attempt.score, totalMarks: attempt.totalMarks, percentage: attempt.percentage,
     correctAnswers: attempt.correctAnswers, totalQuestions: attempt.totalQuestions,
-    startedAt: attempt.startedAt, submittedAt: attempt.submittedAt, timeTakenSeconds: attempt.timeTakenSeconds };
+    startedAt: attempt.startedAt, submittedAt: attempt.submittedAt, timeTakenSeconds: attempt.timeTakenSeconds, review: safeReview(attempt) };
 }
 export function syncProgress(attempt, snapshot, now = new Date()) {
   if (snapshot.timerMode !== "per-question") return;
@@ -167,7 +163,10 @@ export function sessionView(attempt, a, now = new Date()) {
   return { publicId: attempt.publicId, status: attempt.status, attemptNumber: attempt.attemptNumber,
     serverNow: now, expiresAt: attempt.expiresAt, dueAt: a.dueAt,
     currentQuestionIndex: attempt.currentQuestionIndex, questionClosesAt: attempt.questionClosesAt,
-    answers: attempt.answers.map(answer => ({ key: String(a.quizSnapshot.questions.findIndex(q => same(q._id, answer.questionId))), selectedOption: answer.selectedOption })),
+    answers: attempt.answers.map(answer => {
+      const index = a.quizSnapshot.questions.findIndex(q => same(q._id, answer.questionId));
+      return { key: String(index), ...normalizeAnswer(a.quizSnapshot.questions[index], answer) };
+    }),
     quiz: playableQuiz(a.quizSnapshot) };
 }
 export async function startAssignedAttempt(user, value) {
@@ -209,11 +208,10 @@ export async function mutateAssignedAttempt(user, publicId, action, body = {}) {
       if (!Number.isInteger(index) || !question) fail(400, "Invalid question.");
       if (a.quizSnapshot.timerMode === "per-question" && index !== attempt.currentQuestionIndex) fail(409, "This question's time window has ended.");
       if (action === "answer") {
-        const selected = body.selectedOption;
-        if (selected !== null && (!Number.isInteger(selected) || selected < 0 || selected >= question.options.length)) fail(400, "Invalid option.");
+        const value = normalizeAnswer(question, body);
         const saved = attempt.answers.find(x => same(x.questionId, question._id));
-        if (saved) saved.selectedOption = selected;
-        else attempt.answers.push({ questionId: question._id, selectedOption: selected });
+        if (saved) Object.assign(saved, value);
+        else attempt.answers.push({ questionId: question._id, ...value });
       } else {
         if (a.quizSnapshot.timerMode !== "per-question") fail(400, "This quiz does not use question windows.");
         attempt.currentQuestionIndex += 1;
@@ -223,6 +221,7 @@ export async function mutateAssignedAttempt(user, publicId, action, body = {}) {
       }
     } else if (action === "submit") {
       Object.assign(attempt, gradeAnswers(a.quizSnapshot.questions, attempt.answers));
+      attempt.review = reviewQuestions(a.quizSnapshot.questions, attempt.answers);
       attempt.status = "submitted";
       attempt.submittedAt = now;
       attempt.timeTakenSeconds = Math.max(0, Math.round((now - attempt.startedAt) / 1000));

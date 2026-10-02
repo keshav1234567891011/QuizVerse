@@ -8,6 +8,19 @@ import Quiz from "../src/models/Quiz.js";
 import Group from "../src/models/Group.js";
 import User from "../src/models/User.js";
 
+export function mixedQuestions() {
+  const definitions = [
+    { questionType: "singleChoice", questionText: "Choose A", options: ["A", "B"], correctOption: 0 },
+    { questionType: "multipleSelect", questionText: "Choose A and C", options: ["A", "B", "C"], correctOptions: [0, 2] },
+    { questionType: "trueFalse", questionText: "The earth is flat", correctBoolean: false },
+    { questionType: "shortAnswer", questionText: "Name the language", acceptedAnswers: ["JavaScript", "JS"], caseSensitive: false },
+    { questionType: "numeric", questionText: "Zero", correctNumber: 0, numericTolerance: 0.25 },
+    { questionType: "fillBlank", questionText: "{{1}} and {{2}}", blanks: [{ acceptedAnswers: ["one"], caseSensitive: false }, { acceptedAnswers: ["TWO"], caseSensitive: true }] },
+  ];
+  return definitions.map(q => ({ _id: crypto.randomBytes(12).toString("hex"), marks: 2, timeLimit: 30, ...q }));
+}
+export const mixedResponses = () => [ { selectedOption: 0 }, { selectedOptions: [2, 0] }, { booleanAnswer: false }, { textAnswer: " js " }, { numericAnswer: "0" }, { blankAnswers: [" ONE ", "TWO"] } ];
+
 // In-memory transactional service double. It does not prove MongoDB locking;
 // the optional replica-set test is kept separate and disabled by default.
 export function assignmentFixture(t) {

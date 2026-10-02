@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { API_URL } from "../config/api.js";
+import QuestionEditor from "../components/QuestionEditor.jsx";
+import { newQuestion, questionError, questionPayload } from "../config/questions.js";
 
 function EditQuiz() {
   const { id } = useParams();
@@ -41,31 +43,7 @@ function EditQuiz() {
           visibility: quiz.visibility || "private",
           status: quiz.status || "draft",
 
-          questions:
-            quiz.questions?.length > 0
-              ? quiz.questions.map((question) => ({
-                  questionText: question.questionText || "",
-
-                  options:
-                    question.options?.length > 0
-                      ? question.options
-                      : ["", "", "", ""],
-
-                  correctOption: question.correctOption ?? 0,
-
-                  marks: question.marks ?? 1,
-
-                  timeLimit: question.timeLimit ?? 30,
-                }))
-              : [
-                  {
-                    questionText: "",
-                    options: ["", "", "", ""],
-                    correctOption: 0,
-                    marks: 1,
-                    timeLimit: 30,
-                  },
-                ],
+          questions: quiz.questions?.length ? quiz.questions.map(q => ({ ...q, questionType: q.questionType || "singleChoice", clientKey: String(q._id) })) : [newQuestion()],
         });
       } catch (error) {
         console.error("Load quiz error:", error);
@@ -93,135 +71,13 @@ function EditQuiz() {
   };
 
   // -------------------------
-  // QUESTION TEXT
-  // -------------------------
-
-  const handleQuestionTextChange = (questionIndex, value) => {
-    setFormData((previous) => {
-      const questions = [...previous.questions];
-
-      questions[questionIndex] = {
-        ...questions[questionIndex],
-        questionText: value,
-      };
-
-      return {
-        ...previous,
-        questions,
-      };
-    });
-  };
-
-  // -------------------------
-  // OPTION TEXT
-  // -------------------------
-
-  const handleOptionChange = (questionIndex, optionIndex, value) => {
-    setFormData((previous) => {
-      const questions = [...previous.questions];
-
-      const options = [...questions[questionIndex].options];
-
-      options[optionIndex] = value;
-
-      questions[questionIndex] = {
-        ...questions[questionIndex],
-        options,
-      };
-
-      return {
-        ...previous,
-        questions,
-      };
-    });
-  };
-
-  // -------------------------
-  // CORRECT ANSWER
-  // -------------------------
-
-  const handleCorrectOptionChange = (questionIndex, optionIndex) => {
-    setFormData((previous) => {
-      const questions = [...previous.questions];
-
-      questions[questionIndex] = {
-        ...questions[questionIndex],
-        correctOption: optionIndex,
-      };
-
-      return {
-        ...previous,
-        questions,
-      };
-    });
-  };
-
-  // -------------------------
-  // MARKS / TIMER
-  // -------------------------
-
-  const handleQuestionFieldChange = (questionIndex, field, value) => {
-    setFormData((previous) => {
-      const questions = [...previous.questions];
-
-      questions[questionIndex] = {
-        ...questions[questionIndex],
-        [field]: value,
-      };
-
-      return {
-        ...previous,
-        questions,
-      };
-    });
-  };
-
-  // -------------------------
-  // ADD QUESTION
-  // -------------------------
-
-  const addQuestion = () => {
-    setFormData((previous) => ({
-      ...previous,
-
-      questions: [
-        ...previous.questions,
-
-        {
-          questionText: "",
-          options: ["", "", "", ""],
-          correctOption: 0,
-          marks: 1,
-          timeLimit: 30,
-        },
-      ],
-    }));
-  };
-
-  // -------------------------
-  // REMOVE QUESTION
-  // -------------------------
-
-  const removeQuestion = (questionIndex) => {
-    if (formData.questions.length === 1) {
-      return;
-    }
-
-    setFormData((previous) => ({
-      ...previous,
-
-      questions: previous.questions.filter(
-        (_, index) => index !== questionIndex,
-      ),
-    }));
-  };
-
-  // -------------------------
-  // SAVE
+  // SAVE QUIZ
   // -------------------------
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    const invalid = formData.questions.findIndex(q => questionError(q));
+    if (invalid >= 0) { setMessage(`Question ${invalid + 1}: ${questionError(formData.questions[invalid])}`); return; }
 
     const action = event.nativeEvent.submitter?.value || "save";
 
@@ -233,6 +89,7 @@ function EditQuiz() {
     try {
       const payload = {
         ...formData,
+        questions: formData.questions.map(questionPayload),
 
         status,
 
@@ -461,119 +318,7 @@ function EditQuiz() {
           </span>
         </div>
 
-        <div className="questions-list">
-          {formData.questions.map((question, questionIndex) => (
-            <section className="question-card" key={questionIndex}>
-              <div className="question-card-header">
-                <span className="question-number">
-                  Question {questionIndex + 1}
-                </span>
-
-                <button
-                  type="button"
-                  className="btn btn-danger-soft"
-                  disabled={formData.questions.length === 1}
-                  onClick={() => removeQuestion(questionIndex)}
-                >
-                  Remove
-                </button>
-              </div>
-
-              <div className="form-group">
-                <label>Question text</label>
-
-                <input
-                  value={question.questionText}
-                  onChange={(event) =>
-                    handleQuestionTextChange(questionIndex, event.target.value)
-                  }
-                  required
-                />
-              </div>
-
-              <div className="options-list">
-                <label>Answer options</label>
-
-                {question.options.map((option, optionIndex) => (
-                  <div className="option-row" key={optionIndex}>
-                    <input
-                      className="correct-radio"
-                      type="radio"
-                      name={`correct-${questionIndex}`}
-                      checked={question.correctOption === optionIndex}
-                      onChange={() =>
-                        handleCorrectOptionChange(questionIndex, optionIndex)
-                      }
-                    />
-
-                    <span className="option-letter">
-                      {String.fromCharCode(65 + optionIndex)}
-                    </span>
-
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(event) =>
-                        handleOptionChange(
-                          questionIndex,
-                          optionIndex,
-                          event.target.value,
-                        )
-                      }
-                      required
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="question-settings">
-                <div className="form-group">
-                  <label>Marks</label>
-
-                  <input
-                    type="number"
-                    min="1"
-                    value={question.marks}
-                    onChange={(event) =>
-                      handleQuestionFieldChange(
-                        questionIndex,
-                        "marks",
-                        Number(event.target.value),
-                      )
-                    }
-                  />
-                </div>
-
-                {formData.timerMode === "per-question" && (
-                  <div className="form-group">
-                    <label>Time limit (seconds)</label>
-
-                    <input
-                      type="number"
-                      min="5"
-                      value={question.timeLimit}
-                      onChange={(event) =>
-                        handleQuestionFieldChange(
-                          questionIndex,
-                          "timeLimit",
-                          Number(event.target.value),
-                        )
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <button
-          type="button"
-          className="add-question-button"
-          onClick={addQuestion}
-        >
-          + Add another question
-        </button>
+        <QuestionEditor questions={formData.questions} timerMode={formData.timerMode} onChange={questions => setFormData(previous => ({ ...previous, questions }))} />
 
         {message && <div className="form-message">{message}</div>}
 

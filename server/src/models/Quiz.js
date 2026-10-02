@@ -1,43 +1,6 @@
 import mongoose from "mongoose";
 
-const questionSchema = new mongoose.Schema(
-  {
-    questionText: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-
-    options: [
-      {
-        type: String,
-        required: true,
-        trim: true,
-      },
-    ],
-
-    correctOption: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-
-    marks: {
-      type: Number,
-      default: 1,
-      min: 1,
-    },
-
-    timeLimit: {
-      type: Number,
-      default: 30,
-      min: 5,
-    },
-  },
-  {
-    _id: true,
-  }
-);
+import { questionSchema } from "./questionSchemas.js";
 
 const quizSchema = new mongoose.Schema(
   {
