@@ -1,8 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { once } from "node:events";
+import { readFileSync } from "node:fs";
+import * as appModule from "../src/app.js";
 import { createConnector } from "../src/config/db.js";
 import { createInitializer } from "../src/config/initialize.js";
 import { prepareIndexes } from "../src/scripts/prepareIndexes.js";
+test("app exports only a testable factory and server entrypoint wires request initialization", async t => {
+ assert.equal(Object.hasOwn(appModule, "default"), false);
+ const appSource = readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+ const serverSource = readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
+ assert.doesNotMatch(appSource, /\.listen\s*\(/);
+ assert.match(serverSource, /const initialize = createInitializer\(\{ production: config\.production \}\)/);
+ assert.match(serverSource, /app = createApp\(\{ config, initialize \}\)/);
+ assert.match(serverSource, /export default app;/);
+ let calls = 0, unavailable = true;
+ const app = appModule.createApp({ config: { production: true, mode: "test", origins: ["https://quiz.example.test"] },
+  initialize: async () => { calls++; if (unavailable) throw new Error("fake outage"); } });
+ assert.equal(calls, 0);
+ assert.notEqual(app, appModule.createApp({ config: { production: false, mode: "test", origins: [] } }));
+ const server = app.listen(0, "127.0.0.1");
+ t.after(() => new Promise(resolve => server.close(resolve)));
+ await once(server, "listening");
+ const url = `http://127.0.0.1:${server.address().port}/api/health`;
+ assert.equal((await fetch(url)).status, 503); assert.equal(calls, 1);
+ unavailable = false;
+ assert.equal((await fetch(url)).status, 200); assert.equal(calls, 2);
+});
 test("connection promise is shared, reused, retried, and production cannot auto-create indexes", async () => {
  let calls = 0, settings;
  const driver = { connection: { readyState: 0 }, connect: async (uri, options) => { calls++; settings = options; if (calls === 1) throw new Error("fake outage"); driver.connection.readyState = 1; return driver; } };

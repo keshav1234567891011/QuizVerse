@@ -3,7 +3,8 @@ import crypto from "node:crypto";
 import { once } from "node:events";
 import test, { before, after } from "node:test";
 import jwt from "jsonwebtoken";
-import app from "../src/app.js";
+import { createApp } from "../src/app.js";
+const app = createApp();
 import { assignmentFixture } from "../test-support/assignmentFixture.js";
 
 let server, base;

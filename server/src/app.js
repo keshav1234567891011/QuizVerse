@@ -73,5 +73,3 @@ export function createApp({ config = readEnvironment(process.env, { requireSecre
   app.use(errorMiddleware);
   return app;
 }
-
-export default createApp();
