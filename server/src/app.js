@@ -4,6 +4,8 @@ import helmet from "helmet";
 import morgan from "morgan";
 import cookieParser from "cookie-parser";
 import { readEnvironment } from "./config/env.js";
+import { createInitializer } from "./config/initialize.js";
+import { logError } from "./utils/logger.js";
 import { originGuard } from "./middleware/originGuard.js";
 import { authRateLimit } from "./middleware/rateLimitMiddleware.js";
 import { notFound, errorMiddleware } from "./middleware/errorMiddleware.js";
@@ -73,3 +75,24 @@ export function createApp({ config = readEnvironment(process.env, { requireSecre
   app.use(errorMiddleware);
   return app;
 }
+
+export async function createRuntimeApp({ localStartup = false, env = process.env, initializerFactory = createInitializer } = {}) {
+  let port = 5000;
+  try {
+    const config = readEnvironment(env);
+    port = config.port;
+    const initialize = initializerFactory({ production: config.production });
+    if (localStartup && !config.production) await initialize();
+    return { app: createApp({ config, initialize }), port };
+  } catch (error) {
+    logError("api-initialization-failed", error);
+    const app = express();
+    app.disable("x-powered-by");
+    app.use((req, res) => res.status(503).json({ success: false, message: "Service temporarily unavailable. Check deployment configuration." }));
+    return { app, port };
+  }
+}
+
+// Export a configured app without connecting or opening a listening socket.
+const { app } = await createRuntimeApp();
+export default app;

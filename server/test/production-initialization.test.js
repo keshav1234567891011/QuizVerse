@@ -6,17 +6,24 @@ import * as appModule from "../src/app.js";
 import { createConnector } from "../src/config/db.js";
 import { createInitializer } from "../src/config/initialize.js";
 import { prepareIndexes } from "../src/scripts/prepareIndexes.js";
-test("app exports only a testable factory and server entrypoint wires request initialization", async t => {
- assert.equal(Object.hasOwn(appModule, "default"), false);
+test("default runtime app and server entrypoint use initialization while the factory stays isolated", async t => {
+ assert.equal(typeof appModule.default, "function");
+ assert.equal(typeof appModule.default.use, "function");
  const appSource = readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
  const serverSource = readFileSync(new URL("../src/server.js", import.meta.url), "utf8");
  assert.doesNotMatch(appSource, /\.listen\s*\(/);
- assert.match(serverSource, /const initialize = createInitializer\(\{ production: config\.production \}\)/);
- assert.match(serverSource, /app = createApp\(\{ config, initialize \}\)/);
+ assert.match(appSource, /initializerFactory = createInitializer/);
+ assert.match(appSource, /createApp\(\{ config, initialize \}\)/);
+ assert.match(appSource, /const \{ app \} = await createRuntimeApp\(\)/);
+ assert.match(appSource, /export default app;/);
+ assert.match(serverSource, /await createRuntimeApp\(\{ localStartup: true \}\)/);
  assert.match(serverSource, /export default app;/);
  let calls = 0, unavailable = true;
- const app = appModule.createApp({ config: { production: true, mode: "test", origins: ["https://quiz.example.test"] },
-  initialize: async () => { calls++; if (unavailable) throw new Error("fake outage"); } });
+ const env = { NODE_ENV: "production", CLIENT_URL: "https://quiz.example.test", MONGO_URI: "mongodb://isolated.invalid/test", JWT_SECRET: "a".repeat(32), ADMIN_REFERENCE_SECRET: "b".repeat(64) };
+ const { app } = await appModule.createRuntimeApp({ env, initializerFactory: options => {
+  assert.deepEqual(options, { production: true });
+  return async () => { calls++; if (unavailable) throw new Error("fake outage"); };
+ } });
  assert.equal(calls, 0);
  assert.notEqual(app, appModule.createApp({ config: { production: false, mode: "test", origins: [] } }));
  const server = app.listen(0, "127.0.0.1");
@@ -26,6 +33,18 @@ test("app exports only a testable factory and server entrypoint wires request in
  assert.equal((await fetch(url)).status, 503); assert.equal(calls, 1);
  unavailable = false;
  assert.equal((await fetch(url)).status, 200); assert.equal(calls, 2);
+});
+test("runtime configuration failure is safe and local startup still waits for initialization", async t => {
+ let calls = 0;
+ const env = { NODE_ENV: "development", CLIENT_URL: "http://localhost:5173", MONGO_URI: "mongodb://isolated.invalid/test", JWT_SECRET: "a".repeat(32), ADMIN_REFERENCE_SECRET: "b".repeat(64) };
+ await appModule.createRuntimeApp({ localStartup: true, env, initializerFactory: () => async () => { calls++; } });
+ assert.equal(calls, 1);
+ const { app } = await appModule.createRuntimeApp({ env: { ...env, JWT_SECRET: "invalid" }, initializerFactory: () => { throw new Error("must not initialize"); } });
+ const server = app.listen(0, "127.0.0.1");
+ t.after(() => new Promise(resolve => server.close(resolve))); await once(server, "listening");
+ const response = await fetch(`http://127.0.0.1:${server.address().port}/api/health`);
+ assert.equal(response.status, 503);
+ assert.deepEqual(await response.json(), { success: false, message: "Service temporarily unavailable. Check deployment configuration." });
 });
 test("connection promise is shared, reused, retried, and production cannot auto-create indexes", async () => {
  let calls = 0, settings;
