@@ -34,12 +34,20 @@ test("API base accepts same-origin production and rejects dangerous production f
  assert.equal(resolveApiBase("https://api.example.test/", true), "https://api.example.test");
  for (const v of ["http://localhost:5000", "https://localhost", "http://api.example.test", "https://user:pass@example.test", "https://example.test/api", "//example.test"]) assert.throws(() => resolveApiBase(v, true));
 });
-test("SPA fallback excludes API and does not embed an unknown backend hostname", () => {
+test("approved production API proxy precedes the SPA fallback and excludes other external origins", () => {
  const config = JSON.parse(readFileSync(new URL("../../client/vercel.json", import.meta.url)));
+ assert.ok(Array.isArray(config.rewrites)); assert.equal(config.rewrites.length, 2);
+ const approvedDestination = "https://quizverse-api.vercel.app/api/:path*";
+ assert.deepEqual(config.rewrites[0], { source: "/api/:path*", destination: approvedDestination });
+ assert.equal(new URL(config.rewrites[0].destination).pathname, "/api/:path*");
+ const external = config.rewrites.filter(rewrite => !rewrite.destination.startsWith("/"));
+ assert.deepEqual(external.map(rewrite => rewrite.destination), [approvedDestination]);
+ assert.equal(new URL(external[0].destination).origin, "https://quizverse-api.vercel.app");
  const fallback = config.rewrites.at(-1), expression = new RegExp("^" + fallback.source + "$" );
+ assert.deepEqual(fallback, { source: "/((?!api(?:/|$)).*)", destination: "/index.html" });
  for (const path of ["/login", "/register", "/dashboard", "/quizzes/create", "/groups/GRP-AAAAAAAA/chat", "/assignments", "/a/token", "/notifications", "/admin/users"]) assert.ok(expression.test(path), path);
  for (const path of ["/api", "/api/health", "/api/auth/login"]) assert.equal(expression.test(path), false);
- assert.equal(fallback.destination, "/index.html"); assert.ok(!JSON.stringify(config).includes("https://"));
+ assert.equal(fallback.destination, "/index.html");
 });
 test("production error logging excludes sensitive error payloads and arbitrary messages", () => {
  const rows = [], error = Object.assign(new Error("password cookie JWT MongoDB grading secret"), { name: "attacker-secret", code: 11000, password: "private", headers: { cookie: "private" }, quizSnapshot: { correctOption: 0 } });

@@ -10,7 +10,33 @@ test("connection promise is shared, reused, retried, and production cannot auto-
  const first = connect(); assert.equal(first, connect()); await assert.rejects(first);
  const second = connect({ autoIndex: true, autoCreate: true }); assert.equal(second, connect()); await second; await connect(); assert.equal(calls, 2);
  assert.equal(settings.autoIndex, false); assert.equal(settings.autoCreate, false); assert.equal(settings.maxPoolSize, 5); assert.equal(settings.bufferCommands, false);
- driver.connection.readyState = 0; await connect(); assert.equal(calls, 3);
+ assert.equal(settings.minPoolSize, 0); assert.equal(settings.serverSelectionTimeoutMS, 10000); assert.equal(settings.connectTimeoutMS, 10000); assert.equal(settings.socketTimeoutMS, 30000);
+ // Every non-ready state must reconnect rather than reuse a settled promise.
+ for (const state of [2, 3, 0]) {
+  driver.connection.readyState = state;
+  const reconnect = connect(); assert.notEqual(reconnect, second); assert.equal(reconnect, connect());
+  await reconnect;
+  assert.equal(calls, 3 + [2, 3, 0].indexOf(state));
+  assert.equal(driver.connection.readyState, 1);
+ }
+});
+test("pending exists only while connecting; an already healthy connection needs no reconnect", async () => {
+ let calls = 0, finish;
+ const driver = { connection: { readyState: 1 }, connect: () => { calls++; return new Promise(resolve => { finish = resolve; }); } };
+ const connect = createConnector(driver, { MONGO_URI: "mongodb://isolated.invalid/test", NODE_ENV: "production" });
+ assert.equal(await connect(), driver); assert.equal(calls, 0);
+ driver.connection.readyState = 0;
+ const first = connect(); assert.equal(first, connect());
+ await Promise.resolve(); assert.equal(calls, 1);
+ driver.connection.readyState = 1;
+ assert.equal(first, connect()); // Still share the unfinished attempt.
+ finish(driver); assert.equal(await first, driver);
+ const healthy = connect(); assert.notEqual(healthy, first);
+ assert.equal(await healthy, driver); assert.equal(calls, 1);
+ driver.connection.readyState = 3;
+ const next = connect(); assert.notEqual(next, first); assert.equal(next, connect());
+ await Promise.resolve(); assert.equal(calls, 2);
+ driver.connection.readyState = 1; finish(driver); await next;
 });
 test("initialization retries errors, shares concurrent work and never runs production model init", async () => {
  let calls = 0, indexes = 0, ready = false;
